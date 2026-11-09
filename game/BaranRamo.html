@@ -44,6 +44,19 @@
   #btns button{width:74px;height:74px;border-radius:50%;border:2px solid rgba(242,193,78,.75);background:rgba(10,20,45,.8);color:#ffd76e;font-size:30px;backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.4)}
   #btns button:active{transform:scale(.93);background:rgba(242,193,78,.35)}
   #btnBuild{font-size:26px!important}
+  /* ---------- driving pad (inside the car) ---------- */
+  #carPad{position:absolute;right:calc(12px + env(safe-area-inset-right));bottom:calc(150px + env(safe-area-inset-bottom));z-index:7;
+    direction:ltr;display:grid;grid-template-columns:repeat(3,62px);grid-template-rows:repeat(3,62px);gap:7px;touch-action:none;user-select:none;-webkit-user-select:none}
+  #carPad button{border-radius:16px;border:2px solid rgba(120,205,255,.65);background:rgba(8,18,40,.82);color:#cfeaff;font-size:25px;font-weight:800;
+    backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.45);-webkit-tap-highlight-color:transparent;cursor:pointer;padding:0;line-height:1}
+  #carPad button:active,#carPad button.on{transform:scale(.92);background:rgba(80,175,255,.45);border-color:#eaf7ff}
+  #carPad .cwide{grid-column:1 / span 3;font-size:14px;letter-spacing:.4px;color:#ffe6a6;border-color:rgba(242,193,78,.7)}
+  #carPad .cwide:active,#carPad .cwide.on{background:rgba(242,193,78,.4)}
+  #carHud{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(16px + env(safe-area-inset-bottom));z-index:7;
+    background:rgba(8,18,40,.85);border:1.5px solid rgba(120,205,255,.55);border-radius:999px;padding:7px 15px;color:#cfeaff;
+    font-size:13.5px;font-weight:800;backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.45);direction:ltr;white-space:nowrap}
+  #carHud b{color:#ffd76e}
+  #carHud .spd{color:#8ff0c0}
   /* ---------- overlays ---------- */
   #overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(5,10,26,.55);backdrop-filter:blur(3px)}
   #overlay.off{display:none}
@@ -124,6 +137,17 @@
     <button id="btnAct" data-i18n-title="btnActTitle" title="تفاعل">✋</button>
   </div>
 
+  <!-- لوحة قيادة السيارة (تظهر فقط داخل السيارة) -->
+  <div id="carPad" class="hidden">
+    <button data-k="up"   style="grid-column:2;grid-row:1" data-i18n-title="cUp"   title="تسريع">▲</button>
+    <button data-k="horn" style="grid-column:3;grid-row:1" data-i18n-title="cHorn" title="بوق">📯</button>
+    <button data-k="lf"   style="grid-column:1;grid-row:2" data-i18n-title="cLeft" title="يسار">◀</button>
+    <button data-k="dn"   style="grid-column:2;grid-row:2" data-i18n-title="cDown" title="فرملة">▼</button>
+    <button data-k="rt"   style="grid-column:3;grid-row:2" data-i18n-title="cRight" title="يمين">▶</button>
+    <button data-k="exit" class="cwide" style="grid-row:3" data-i18n="bExitCar">🚪 نزول من السيارة</button>
+  </div>
+  <div id="carHud" class="hidden">⛽ <b id="chFuel">0</b> &nbsp;·&nbsp; <b class="spd" id="chSpd">0</b> km/h</div>
+
   <div id="overlay">
     <!-- العنوان -->
     <div class="ov on" id="ovTitle">
@@ -158,6 +182,8 @@
         <div class="menu">
           <button class="mbtn gold" id="btnResume" data-i18n="bResume">▶ متابعة</button>
           <button class="mbtn" id="btnSave" data-i18n="bSave">💾 حفظ الآن</button>
+          <button class="mbtn" id="btnGmail" data-i18n="bGmail">📧 حفظ التقدم عبر Gmail</button>
+          <button class="mbtn" id="btnImport" data-i18n="bImport">📥 استيراد حفظ سابق</button>
           <button class="mbtn" id="btnAbout2" data-i18n="bAbout">🎖️ عن اللعبة وحقوق الملكية</button>
           <button class="mbtn" id="btnQuit" data-i18n="bMenu">🏠 القائمة الرئيسية</button>
         </div>
@@ -263,6 +289,8 @@ let p2on=false, buildSel=null;
 const keys=Object.create(null);
 const joy={active:false,id:null,bx:0,by:0,dx:0,dy:0};
 const queued=[false,false];
+/* أزرار قيادة السيارة باللمس — تُقرأ بجانب مفاتيح لوحة المفاتيح */
+const vkeys={up:false,dn:false,lf:false,rt:false};
 const MUS={on:false,step:0,timer:null};
 
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -281,6 +309,15 @@ const I18N={
    musOn:"🎵 الموسيقى: تعمل", musOff:"🎵 الموسيقى: مغلقة",
    crTitle:'<b>© 2026 Baran Avisat</b> — جميع الحقوق محفوظة<br>المؤلف والمصمم والمخرج: <b>Baran Avisat</b>',
    pauseT:"⏸️ إيقاف مؤقت", bResume:"▶ متابعة", bSave:"💾 حفظ الآن", bMenu:"🏠 القائمة الرئيسية",
+   bGmail:"📧 حفظ التقدم عبر Gmail", bImport:"📥 استيراد حفظ سابق",
+   gmailSub:"BaranRamo — حفظ تقدم اللعبة",
+   gmailBody:"مرحباً Baran،\nهذه نسخة حفظ تقدمي في لعبة BaranRamo.\nانسخ الكود أدناه ثم الصقه داخل زر «استيراد حفظ سابق» في اللعبة.\n\nالكود:\n{code}\n\n© 2026 Baran Avisat — جميع الحقوق محفوظة",
+   tGmailOpen:"📧 تم نسخ الكود وفتح بريدك — أرسل الرسالة لحفظ تقدمك",
+   tImportAsk:"الصق كود الحفظ الذي نسخته من بريدك:",
+   tImportOk:"✅ تم استيراد الحفظ — أهلاً بعودتك!",
+   tImportBad:"❌ الكود غير صالح — تأكد من نسخه كاملاً",
+   bExitCar:"🚪 نزول من السيارة",
+   cUp:"تسريع", cDown:"فرملة ورجوع", cLeft:"انعطاف يسار", cRight:"انعطاف يمين", cHorn:"بوق",
    keysLine:'التحريك: <span class="kbd">W A S D</span> · الفعل: <span class="kbd">F</span> · البناء: <span class="kbd">G</span> · لاعب 2: <span class="kbd">P</span> + الأسهم و <span class="kbd">.</span>',
    storeT:"🏪 متجر البلد", secSell:"📥 بيع المحاصيل", secBuy:"📤 شراء",
    bSellAll:"💰 بيع كل شيء", bClose:"إغلاق", balLabel:"💰 رصيدك:",
@@ -345,6 +382,15 @@ const I18N={
    musOn:"🎵 Music: On", musOff:"🎵 Music: Off",
    crTitle:'<b>© 2026 Baran Avisat</b> — All Rights Reserved<br>Author, Designer & Director: <b>Baran Avisat</b>',
    pauseT:"⏸️ Paused", bResume:"▶ Resume", bSave:"💾 Save Now", bMenu:"🏠 Main Menu",
+   bGmail:"📧 Save progress via Gmail", bImport:"📥 Import a save",
+   gmailSub:"BaranRamo — game save",
+   gmailBody:"Hi Baran,\nHere is my BaranRamo save progress.\nCopy the code below and paste it into the Import a save button in the game.\n\nCode:\n{code}\n\n© 2026 Baran Avisat — All rights reserved",
+   tGmailOpen:"📧 Code copied and your mail app opened — send the email to keep your progress",
+   tImportAsk:"Paste the save code you copied from your email:",
+   tImportOk:"✅ Save imported — welcome back!",
+   tImportBad:"❌ Invalid code — make sure you copied it completely",
+   bExitCar:"🚪 Get out of the car",
+   cUp:"Accelerate", cDown:"Brake / reverse", cLeft:"Steer left", cRight:"Steer right", cHorn:"Horn",
    keysLine:'Move: <span class="kbd">W A S D</span> · Act: <span class="kbd">F</span> · Build: <span class="kbd">G</span> · Player 2: <span class="kbd">P</span> + Arrows &amp; <span class="kbd">.</span>',
    storeT:"🏪 Village Store", secSell:"📥 Sell Crops", secBuy:"📤 Buy",
    bSellAll:"💰 Sell All", bClose:"Close", balLabel:"💰 Your balance:",
@@ -409,6 +455,15 @@ const I18N={
    musOn:"🎵 Müzik: Açık", musOff:"🎵 Müzik: Kapalı",
    crTitle:'<b>© 2026 Baran Avisat</b> — Tüm Hakları Saklıdır<br>Yazar, Tasarımcı ve Yönetmen: <b>Baran Avisat</b>',
    pauseT:"⏸️ Duraklatıldı", bResume:"▶ Devam", bSave:"💾 Kaydet", bMenu:"🏠 Ana Menü",
+   bGmail:"📧 İlerlemeyi Gmail ile kaydet", bImport:"📥 Kayıt içe aktar",
+   gmailSub:"BaranRamo — oyun kaydı",
+   gmailBody:"Merhaba Baran,\nİşte BaranRamo oyun kaydı.\nAşağıdaki kodu kopyalayıp oyundaki Kayıt içe aktar düğmesine yapıştır.\n\nKod:\n{code}\n\n© 2026 Baran Avisat — Tüm hakları saklıdır",
+   tGmailOpen:"📧 Kopyalandı ve e-posta uygulaman açıldı — ilerlemeni kaydetmek için e-postayı gönder",
+   tImportAsk:"E-postadan kopyaladığın kayıt kodunu yapıştır:",
+   tImportOk:"✅ Kayıt içe aktarıldı — tekrar hoş geldin!",
+   tImportBad:"❌ Geçersiz kod — tamamen kopyalandığından emin ol",
+   bExitCar:"🚪 Arabadan in",
+   cUp:"Hızlan", cDown:"Fren / geri", cLeft:"Sola dön", cRight:"Sağa dön", cHorn:"Korna",
    keysLine:'Hareket: <span class="kbd">W A S D</span> · Eylem: <span class="kbd">F</span> · İnşa: <span class="kbd">G</span> · Oyuncu 2: <span class="kbd">P</span> + Oklar ve <span class="kbd">.</span>',
    storeT:"🏪 Köy Dükkanı", secSell:"📥 Hasat Sat", secBuy:"📤 Satın Al",
    bSellAll:"💰 Hepsini Sat", bClose:"Kapat", balLabel:"💰 Bakiyen:",
@@ -788,6 +843,31 @@ sz.addEventListener("pointerup",endJoy); sz.addEventListener("pointercancel",end
 $("btnAct").addEventListener("pointerdown",e=>{ e.preventDefault(); if(mode==="play")queued[0]=true; });
 $("btnBuild").addEventListener("pointerdown",e=>{ e.preventDefault(); if(mode==="play")openBuild(); });
 
+/* ---------- driving pad ---------- */
+const cp=$("carPad");
+function clearVkeys(){ for(const k in vkeys)vkeys[k]=false;
+  cp.querySelectorAll("button.on").forEach(b=>b.classList.remove("on")); }
+cp.addEventListener("pointerdown",e=>{ const b=e.target.closest("button"); if(!b||mode!=="play")return;
+  e.preventDefault(); const k=b.dataset.k;
+  if(k==="horn"){ if(G&&G.car&&G.car.on)sfx("horn"); return; }
+  if(k==="exit"){ queued[0]=true; return; }
+  if(!(k in vkeys))return;
+  vkeys[k]=true; b.classList.add("on");
+  try{ b.setPointerCapture(e.pointerId); }catch(err){} });
+["pointerup","pointercancel"].forEach(ev=>cp.addEventListener(ev,e=>{
+  const b=e.target.closest?e.target.closest("button"):null;
+  if(b&&b.dataset.k&&(b.dataset.k in vkeys)){ vkeys[b.dataset.k]=false; b.classList.remove("on"); } }));
+window.addEventListener("blur",clearVkeys);
+document.addEventListener("visibilitychange",()=>{ if(document.hidden)clearVkeys(); });
+/* إظهار/إخفاء لوحة القيادة حسب ركوب السيارة */
+function setDriveUI(on){
+  $("carPad").classList.toggle("hidden",!on);
+  $("carHud").classList.toggle("hidden",!on);
+  $("btns").classList.toggle("hidden",on);
+  $("stickZone").classList.toggle("hidden",on);
+  $("hint").classList.add("hidden");
+  if(!on)clearVkeys(); }
+
 /* ============================ ACTIONS ============================ */
 const HINTS={build:b=>tp("hBuild",{n:t(BUILD[b].nk),c:BUILD[b].cost}),
   store:()=>t("hStore"), sleep:()=>t("hSleep"), house:()=>t("hHouse"),
@@ -855,9 +935,9 @@ function doAction(p){
     case "pet": sfx("pop"); toast(t("tHenPet")); break;
     case "cow":{ const c=G.cows.find(q=>Math.hypot(q.x-(p.x+p.dx*30),q.y-(p.y+p.dy*30))<46);
       sfx("moo",c?c.x:p.x,c?c.y:p.y); toast(t("tCow")); break; }
-    case "car":{ G.car.on=true; G.car.v=0; G.car.ft=0; engineRev(.6); engineLoop(true);
+    case "car":{ G.car.on=true; G.car.v=0; G.car.ft=0; engineRev(.6); engineLoop(true); setDriveUI(true);
       toast(G.inv.fuel>0?t("tCarIn"):t("tNoFuel")); break; }
-    case "exitcar":{ const c=G.car, p0=G.players[0]; c.on=false; c.v=0; engineLoop(false);
+    case "exitcar":{ const c=G.car, p0=G.players[0]; c.on=false; c.v=0; engineLoop(false); setDriveUI(false);
       let ex=c.x, ey=c.y;
       for(const off of [1.5708,-1.5708,Math.PI,0]){
         const tx=c.x+Math.cos(c.a+off)*30, ty=c.y+Math.sin(c.a+off)*30;
@@ -1050,8 +1130,8 @@ function update(dt){
   const car=G.car;
   if(car){
     if(car.on){
-      const up=keys.ArrowUp||keys.KeyW, dn=keys.ArrowDown||keys.KeyS,
-            lf=keys.ArrowLeft||keys.KeyA, rt=keys.ArrowRight||keys.KeyD;
+      const up=keys.ArrowUp||keys.KeyW||vkeys.up, dn=keys.ArrowDown||keys.KeyS||vkeys.dn,
+            lf=keys.ArrowLeft||keys.KeyA||vkeys.lf, rt=keys.ArrowRight||keys.KeyD||vkeys.rt;
       const gas=G.inv.fuel>0;
       if(up&&gas)car.v+=190*dt; else if(dn)car.v-=170*dt;
       car.v*=(1-1.0*dt); car.v=clamp(car.v,-90,200);
@@ -1060,6 +1140,15 @@ function update(dt){
       const nx=car.x+Math.cos(car.a)*car.v*dt, ny=car.y+Math.sin(car.a)*car.v*dt;
       if(carFree(nx,ny)){ car.x=nx; car.y=ny; }
       else { if(Math.abs(car.v)>30)sfx("error",car.x,car.y); car.v*=-.35; }
+      /* غبار ودخان خلف السيارة عند التحرك */
+      if(Math.abs(car.v)>14&&Math.random()<Math.min(.9,Math.abs(car.v)/140)){
+        const bA=car.a+Math.PI, d=17+Math.random()*9;
+        G.parts.push({x:car.x+Math.cos(bA)*d+(Math.random()-.5)*9,
+          y:car.y+Math.sin(bA)*d+(Math.random()-.5)*9,
+          vx:Math.cos(bA)*(12+Math.random()*22)+(Math.random()-.5)*14,
+          vy:Math.sin(bA)*(12+Math.random()*22)-12,
+          life:.5+Math.random()*.35,max:.85,s:3+Math.random()*4,
+          c:car.v>0?"rgba(218,202,168,.72)":"rgba(198,190,178,.7)"}); }
       if(gas&&Math.abs(car.v)>8){ car.ft=(car.ft||0)+dt;
         if(car.ft>=10){ car.ft=0; G.inv.fuel=Math.max(0,G.inv.fuel-1);
           floatAt(Math.floor(car.x/TILE),Math.floor(car.y/TILE),"-1⛽");
@@ -1151,16 +1240,57 @@ function drawCow(c,sx,sy){
   ctx.moveTo(6,8); ctx.lineTo(6,13); ctx.stroke();
   ctx.restore(); }
 function drawCar(c,sx,sy){
-  ctx.save(); ctx.translate(sx,sy); ctx.rotate(c.a);
-  ctx.fillStyle="rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(0,5,21,10,0,0,7); ctx.fill();
-  ctx.fillStyle="#1b1b1f"; rr(-14,-15,10,6,2); ctx.fill(); rr(5,-15,10,6,2); ctx.fill();
-  rr(-14,9,10,6,2); ctx.fill(); rr(5,9,10,6,2); ctx.fill();
-  ctx.fillStyle="#2f6fd8"; rr(-20,-11,40,22,7); ctx.fill();
-  ctx.fillStyle="#2659b0"; rr(-20,-11,40,9,7); ctx.fill();
-  ctx.fillStyle="#bfe4ff"; rr(-7,-7,14,14,4); ctx.fill();
-  ctx.fillStyle="#8fc7ee"; rr(-7,-7,14,5,4); ctx.fill();
-  ctx.fillStyle="#ffd166"; ctx.beginPath(); ctx.arc(18,-7,2.6,0,7); ctx.arc(18,7,2.6,0,7); ctx.fill();
-  ctx.fillStyle="#e14b4b"; ctx.beginPath(); ctx.arc(-19,-7,2.2,0,7); ctx.arc(-19,7,2.2,0,7); ctx.fill();
+  const night=isNight(), braking=!!(vkeys.dn||keys.ArrowDown||keys.KeyS);
+  ctx.save(); ctx.translate(sx,sy);
+  /* ظل أرضي ناعم */
+  ctx.fillStyle="rgba(0,0,0,.32)"; ctx.beginPath(); ctx.ellipse(3,9,23,10,0,0,7); ctx.fill();
+  ctx.rotate(c.a);
+  /* ---- العجلات (خلف الهيكل) ---- */
+  const wheel=(x,y)=>{ ctx.fillStyle="#131317"; rr(x,y,12,7,3); ctx.fill();
+    ctx.fillStyle="#343a45"; rr(x+1.5,y+1.5,9,4,2); ctx.fill();
+    ctx.fillStyle="#cfd8e6"; ctx.beginPath(); ctx.arc(x+6,y+3.5,1.6,0,7); ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.35)"; ctx.fillRect(x+2,y+1.8,6,1); };
+  wheel(-17,-16); wheel(6,-16); wheel(-17,9); wheel(6,9);
+  /* ---- الهيكل متدرج ---- */
+  const g=ctx.createLinearGradient(0,-14,0,14);
+  g.addColorStop(0,"#69adff"); g.addColorStop(.34,"#3177e0");
+  g.addColorStop(.70,"#2157b6"); g.addColorStop(1,"#163e86");
+  ctx.fillStyle=g; rr(-23,-13,46,26,9); ctx.fill();
+  ctx.strokeStyle="rgba(8,17,40,.65)"; ctx.lineWidth=1.4; rr(-23,-13,46,26,9); ctx.stroke();
+  /* لمعان علوي + ظل سفلي */
+  ctx.fillStyle="rgba(255,255,255,.22)"; rr(-21,-12,42,7,7); ctx.fill();
+  ctx.fillStyle="rgba(0,0,0,.30)"; rr(-23,7,46,6,8); ctx.fill();
+  /* خط زين جانبي */
+  ctx.strokeStyle="rgba(255,255,255,.40)"; ctx.lineWidth=1.3;
+  ctx.beginPath(); ctx.moveTo(-19,1); ctx.lineTo(20,1); ctx.stroke();
+  /* ---- المقصورة والزجاج ---- */
+  const gw=ctx.createLinearGradient(-10,-10,-10,10);
+  gw.addColorStop(0,"#eef9ff"); gw.addColorStop(.45,"#a9d5f7"); gw.addColorStop(1,"#48839f");
+  gw.addColorStop(1,"#48839f");
+  ctx.fillStyle=gw; rr(-10,-10,20,20,5); ctx.fill();
+  ctx.strokeStyle="rgba(9,24,52,.6)"; ctx.lineWidth=1.5; rr(-10,-10,20,20,5); ctx.stroke();
+  ctx.fillStyle="rgba(12,30,60,.8)"; ctx.fillRect(-0.8,-10,2.2,20);   /* فاصل */
+  ctx.fillStyle="rgba(255,255,255,.5)"; rr(-8,-8,5.5,7,2); ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,.24)"; rr(3.5,3,5,5.5,2); ctx.fill();
+  /* غطاء المحرك + خطوط */
+  ctx.fillStyle="rgba(255,255,255,.13)"; rr(14,-10,8,20,4); ctx.fill();
+  ctx.strokeStyle="rgba(8,17,40,.45)"; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(13.5,-10); ctx.lineTo(13.5,10); ctx.stroke();
+  /* مرايا */
+  ctx.fillStyle="#16345f"; rr(-4,-17,6,4.5,1.5); ctx.fill(); rr(-4,12.5,6,4.5,1.5); ctx.fill();
+  /* ---- مصابيح أمامية ---- */
+  ctx.fillStyle=night?"#fffce4":"#ffeab0"; rr(20,-10,4.5,6.5,2); ctx.fill(); rr(20,3.5,4.5,6.5,2); ctx.fill();
+  if(night){ [ -6.7,6.7 ].forEach(dy=>{ const hg=ctx.createRadialGradient(22,dy,0,22,dy,15);
+      hg.addColorStop(0,"rgba(255,246,196,.9)"); hg.addColorStop(1,"rgba(255,246,196,0)");
+      ctx.fillStyle=hg; ctx.beginPath(); ctx.arc(22,dy,15,0,7); ctx.fill(); }); }
+  /* ---- مصابيح خلفية / الفرامل ---- */
+  ctx.fillStyle=braking?"#ff8f8f":"#e03b3b"; rr(-24.5,-10,4.5,6.5,1.6); ctx.fill();
+  rr(-24.5,3.5,4.5,6.5,1.6); ctx.fill();
+  if(braking){ ctx.fillStyle="rgba(255,90,90,.35)";
+    ctx.beginPath(); ctx.arc(-25,-6.7,9,0,7); ctx.fill();
+    ctx.beginPath(); ctx.arc(-25,6.7,9,0,7); ctx.fill(); }
+  /* انعكاس لوني على الزجاج حسب وقت اليوم */
+  if(night){ ctx.fillStyle="rgba(120,180,255,.10)"; rr(-10,-10,20,20,5); ctx.fill(); }
   ctx.restore(); }
 function drawTree(sx,sy,tr){
   if(tr.stump){ ctx.fillStyle="#7a4f28"; rr(sx-8,sy-6,16,12,3); ctx.fill();
@@ -1207,30 +1337,88 @@ function drawBldg(b,ox,oy){
     ctx.moveTo(sx+w/2-13,sy+h-4); ctx.lineTo(sx+w/2+13,sy+h-32); ctx.stroke(); return; }
   // house
   ctx.fillStyle="#e8d3a8"; rr(sx+2,sy+10,w-4,h-12,6); ctx.fill();
+  ctx.fillStyle="rgba(0,0,0,.10)"; rr(sx+2,sy+h-26,w-4,14,6); ctx.fill();
   ctx.fillStyle="#c0453a"; ctx.beginPath(); ctx.moveTo(sx-4,sy+14); ctx.lineTo(sx+w/2,sy-10); ctx.lineTo(sx+w+4,sy+14); ctx.fill();
+  ctx.fillStyle="rgba(255,255,255,.16)"; ctx.beginPath(); ctx.moveTo(sx+2,sy+13); ctx.lineTo(sx+w/2,sy-8); ctx.lineTo(sx+w/2,sy+13); ctx.fill();
   ctx.fillStyle="#7a4f28"; rr(sx+w/2-9,sy+h-26,18,24,4); ctx.fill();
-  ctx.fillStyle="#7ec8ff"; rr(sx+8,sy+18,12,12,3); ctx.fill(); rr(sx+w-20,sy+18,12,12,3); ctx.fill(); }
+  const lit=isNight();
+  if(lit){ ctx.fillStyle="rgba(255,214,110,.28)";
+    rr(sx+4,sy+14,20,20,7); ctx.fill(); rr(sx+w-24,sy+14,20,20,7); ctx.fill(); }
+  ctx.fillStyle=lit?"#ffd76e":"#7ec8ff";
+  rr(sx+8,sy+18,12,12,3); ctx.fill(); rr(sx+w-20,sy+18,12,12,3); ctx.fill();
+  ctx.strokeStyle=lit?"rgba(140,80,10,.6)":"rgba(20,45,80,.5)"; ctx.lineWidth=1.3;
+  ctx.beginPath(); ctx.moveTo(sx+14,sy+18); ctx.lineTo(sx+14,sy+30);
+  ctx.moveTo(sx+8,sy+24); ctx.lineTo(sx+20,sy+24);
+  ctx.moveTo(sx+w-14,sy+18); ctx.lineTo(sx+w-14,sy+30);
+  ctx.moveTo(sx+w-20,sy+24); ctx.lineTo(sx+w-8,sy+24); ctx.stroke(); }
+function hash2(x,y){ let h=(Math.imul(x,374761393)+Math.imul(y,668265263))|0;
+  h=Math.imul(h^(h>>>13),1274126177)|0; return ((h^(h>>>16))>>>0)/4294967296; }
 function drawGroundTile(tx,ty,sx,sy){
   const k=tileKey(tx,ty);
   const checker=(tx+ty)%2===0;
-  if(G.water.has(k)){ ctx.fillStyle=checker?"#2f6fd8":"#2a63c8"; ctx.fillRect(sx,sy,TILE,TILE);
-    ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=1.5;
-    const wv=Math.sin(performance.now()/500+tx)*3;
-    ctx.beginPath(); ctx.moveTo(sx+4,sy+TILE/2+wv); ctx.lineTo(sx+TILE-4,sy+TILE/2+wv); ctx.stroke(); return; }
-  if(G.soil.has(k)){ ctx.fillStyle=checker?"#7a4f28":"#73492a"; ctx.fillRect(sx,sy,TILE,TILE);
-    ctx.strokeStyle="rgba(0,0,0,.22)"; ctx.lineWidth=1;
-    for(let i=1;i<4;i++){ ctx.beginPath(); ctx.moveTo(sx,sy+i*TILE/4); ctx.lineTo(sx+TILE,sy+i*TILE/4); ctx.stroke(); } return; }
-  if(G.roads&&G.roads.has(k)){ ctx.fillStyle=checker?"#8f887a":"#8a8375"; ctx.fillRect(sx,sy,TILE,TILE);
-    ctx.strokeStyle="rgba(0,0,0,.12)"; ctx.lineWidth=1; ctx.strokeRect(sx+.5,sy+.5,TILE-1,TILE-1);
-    ctx.fillStyle="rgba(255,255,255,.6)";
-    if(ty===10){ for(let i=0;i<4;i++)ctx.fillRect(sx+i*8+2,sy+TILE-2,4,2); }
-    if(tx===29){ for(let i=0;i<4;i++)ctx.fillRect(sx+TILE-2,sy+i*8+2,2,4); }
+  const now=performance.now(), h1=hash2(tx,ty), h2=hash2(tx*3+7,ty*5+11);
+  /* ---- ماء بعمق وحركة ---- */
+  if(G.water.has(k)){
+    const wg=ctx.createLinearGradient(sx,sy,sx,sy+TILE);
+    wg.addColorStop(0,checker?"#4189ec":"#3a7fe2"); wg.addColorStop(1,checker?"#1e4fa8":"#1a499c");
+    ctx.fillStyle=wg; ctx.fillRect(sx,sy,TILE,TILE);
+    ctx.strokeStyle="rgba(255,255,255,.30)"; ctx.lineWidth=1.5;
+    const wv=Math.sin(now/520+tx*1.3)*3;
+    ctx.beginPath(); ctx.moveTo(sx+3,sy+TILE*.62+wv); ctx.lineTo(sx+TILE-3,sy+TILE*.62+wv); ctx.stroke();
+    ctx.strokeStyle="rgba(255,255,255,.13)";
+    const wv2=Math.sin(now/760+ty*1.1+2)*3;
+    ctx.beginPath(); ctx.moveTo(sx+7,sy+TILE*.28+wv2); ctx.lineTo(sx+TILE-7,sy+TILE*.28+wv2); ctx.stroke();
+    if(h1>.55){ ctx.fillStyle="rgba(255,255,255,.55)";
+      ctx.fillRect(sx+5+h2*18,sy+5+h1*16,3,1.6); }
     return; }
-  ctx.fillStyle=checker?"#5ab854":"#54b04e"; ctx.fillRect(sx,sy,TILE,TILE);
-  // decorative grass tufts
-  if(((tx*7+ty*13)%11)===0){ ctx.strokeStyle="#3f9a41"; ctx.lineWidth=1.5;
-    ctx.beginPath(); ctx.moveTo(sx+8,sy+TILE-6); ctx.lineTo(sx+7,sy+TILE-12);
-    ctx.moveTo(sx+12,sy+TILE-6); ctx.lineTo(sx+13,sy+TILE-12); ctx.stroke(); } }
+  /* ---- تربة محروثة ---- */
+  if(G.soil.has(k)){
+    const sg=ctx.createLinearGradient(sx,sy,sx,sy+TILE);
+    sg.addColorStop(0,checker?"#8a5a30":"#82542c"); sg.addColorStop(1,checker?"#63401f":"#5c3b1d");
+    ctx.fillStyle=sg; ctx.fillRect(sx,sy,TILE,TILE);
+    ctx.strokeStyle="rgba(0,0,0,.26)"; ctx.lineWidth=1.2;
+    for(let i=1;i<4;i++){ ctx.beginPath(); ctx.moveTo(sx,sy+i*TILE/4); ctx.lineTo(sx+TILE,sy+i*TILE/4); ctx.stroke(); }
+    ctx.strokeStyle="rgba(255,255,255,.07)";
+    for(let i=0;i<4;i++){ ctx.beginPath(); ctx.moveTo(sx,sy+i*TILE/4+.9); ctx.lineTo(sx+TILE,sy+i*TILE/4+.9); ctx.stroke(); }
+    if(h1>.72){ ctx.fillStyle="rgba(40,26,12,.55)";
+      ctx.beginPath(); ctx.arc(sx+5+h2*22,sy+6+h1*18,1.6,0,7); ctx.fill(); }
+    return; }
+  /* ---- الطريق: إسفلت وخطوط متقطعة ---- */
+  if(G.roads&&G.roads.has(k)){
+    const ag=ctx.createLinearGradient(sx,sy,sx+TILE,sy+TILE);
+    ag.addColorStop(0,checker?"#918a7c":"#8b8471"); ag.addColorStop(1,checker?"#847d70":"#7e776a");
+    ctx.fillStyle=ag; ctx.fillRect(sx,sy,TILE,TILE);
+    if(h1>.6){ ctx.fillStyle="rgba(0,0,0,.15)";
+      ctx.fillRect(sx+3+h2*24,sy+4+h1*22,2,2);
+      ctx.fillRect(sx+2+h1*26,sy+18+h2*8,1.6,1.6); }
+    ctx.strokeStyle="rgba(0,0,0,.13)"; ctx.lineWidth=1; ctx.strokeRect(sx+.5,sy+.5,TILE-1,TILE-1);
+    const horiz=(ty===10||ty===11);
+    ctx.fillStyle="rgba(255,255,255,.75)";
+    if(horiz){ if(tx%2===0)ctx.fillRect(sx+4,sy+TILE/2-1.4,TILE-8,2.8); }
+    else { if(ty%2===0)ctx.fillRect(sx+TILE/2-1.4,sy+4,2.8,TILE-8); }
+    if((tx===29||tx===30)&&(ty===10||ty===11)){   /* تقاطع */
+      ctx.fillStyle="rgba(255,240,190,.5)";
+      for(let i=0;i<3;i++){ ctx.fillRect(sx+4+i*11,sy+2.5,6,3); ctx.fillRect(sx+4+i*11,sy+TILE-5.5,6,3);
+        ctx.fillRect(sx+2.5,sy+4+i*11,3,6); ctx.fillRect(sx+TILE-5.5,sy+4+i*11,3,6); } }
+    return; }
+  /* ---- عشب متعدد الدرجات ---- */
+  const tones=["#57b451","#52ad4c","#5cbb56","#4ea84a"];
+  ctx.fillStyle=tones[(h1*4)|0]; ctx.fillRect(sx,sy,TILE,TILE);
+  if(h2>.80){ ctx.fillStyle="rgba(255,255,255,.05)"; ctx.fillRect(sx+2,sy+2,TILE-4,TILE-4); }
+  ctx.strokeStyle="rgba(45,130,51,.9)"; ctx.lineWidth=1.4;
+  const n=2+((h1*3)|0);
+  for(let i=0;i<n;i++){
+    const gx=sx+4+((h2*97+i*37)%24), gy=sy+TILE-4-((h1*53+i*29)%10);
+    ctx.beginPath(); ctx.moveTo(gx,gy); ctx.lineTo(gx-1.5,gy-5);
+    ctx.moveTo(gx,gy); ctx.lineTo(gx+1.6,gy-5.6); ctx.stroke(); }
+  if(h1>.91){ ctx.fillStyle=h2>.5?"#ffe36b":"#ff8fb1";
+    const fx=sx+7+h2*18, fy=sy+8+h1*14;
+    ctx.beginPath(); ctx.arc(fx,fy,2.3,0,7); ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.92)"; ctx.beginPath(); ctx.arc(fx,fy,.9,0,7); ctx.fill(); }
+  if(h2>.945){ ctx.fillStyle="#9aa3ad";
+    ctx.beginPath(); ctx.ellipse(sx+8+h1*16,sy+12+h2*10,3.2,2.3,.4,0,7); ctx.fill();
+    ctx.fillStyle="rgba(255,255,255,.38)";
+    ctx.beginPath(); ctx.ellipse(sx+7+h1*16,sy+11+h2*10,1.5,.9,.4,0,7); ctx.fill(); } }
 function drawCrop(k,cr,sx,sy){
   const st=stageOf(cr);
   if(st===0){ ctx.fillStyle="#6b4423"; ctx.beginPath(); ctx.arc(sx,sy+4,3,0,7); ctx.fill(); return; }
@@ -1266,9 +1454,39 @@ function renderLighting(cmx,cmy){
   for(const p of G.players) glow(p.x-cmx,p.y-cmy,150,.95);
   for(const b of G.bldgs){ if(b.t==="house"||b.t==="store"||b.t==="coop")
     glow(b.x*TILE+b.w*TILE/2-cmx,b.y*TILE+b.h*TILE/2-cmy,120,.8); }
+  /* مخروط أضواء السيارة يشقّ الظلام */
+  if(G.car&&G.car.on){ const c=G.car;
+    lc.save(); lc.globalCompositeOperation="destination-out";
+    lc.translate(c.x-cmx,c.y-cmy); lc.rotate(c.a);
+    const beam=lc.createLinearGradient(16,0,190,0);
+    beam.addColorStop(0,"rgba(0,0,0,.97)"); beam.addColorStop(.55,"rgba(0,0,0,.72)"); beam.addColorStop(1,"rgba(0,0,0,0)");
+    lc.fillStyle=beam;
+    lc.beginPath(); lc.moveTo(17,-8); lc.lineTo(190,-72); lc.lineTo(190,72); lc.lineTo(17,8); lc.closePath(); lc.fill();
+    lc.beginPath(); lc.arc(24,0,34,0,7); lc.fill();
+    lc.restore(); }
   ctx.drawImage(lightCv,0,0,W,H);
+  /* شعاع دافئ مرئي فوق الطريق */
+  if(G.car&&G.car.on){ const c=G.car;
+    ctx.save(); ctx.globalCompositeOperation="lighter";
+    ctx.translate(c.x-cmx,c.y-cmy); ctx.rotate(c.a);
+    const wb=ctx.createLinearGradient(16,0,175,0);
+    wb.addColorStop(0,"rgba(255,232,168,.34)"); wb.addColorStop(.5,"rgba(255,228,160,.14)"); wb.addColorStop(1,"rgba(255,228,160,0)");
+    ctx.fillStyle=wb;
+    ctx.beginPath(); ctx.moveTo(17,-8); ctx.lineTo(175,-66); ctx.lineTo(175,66); ctx.lineTo(17,8); ctx.closePath(); ctx.fill();
+    ctx.restore(); }
   // warm tint on lit zones
   ctx.save(); ctx.globalCompositeOperation="overlay"; ctx.fillStyle="rgba(255,180,80,.10)"; ctx.fillRect(0,0,W,H); ctx.restore(); }
+/* تدرّج لوني حسب وقت اليوم (شروق / ظهر / غروب / ليل) */
+function skyGrade(){
+  const h=(6+G.time*24)%24;
+  let col,a;
+  if(h>=4.5&&h<7.5){ col="255,146,64"; a=.26*(1-Math.abs(h-6)/1.5); }
+  else if(h>=7.5&&h<16.5){ col="255,250,220"; a=.06; }
+  else if(h>=16.5&&h<19){ col="255,124,58"; a=.24*((h-16.5)/2.5); }
+  else if(h>=19&&h<21){ col="108,74,184"; a=.22*((h-19)/2); }
+  else { col="38,66,148"; a=.11; }
+  a=clamp(a,0,1); if(a<.004)return;
+  ctx.save(); ctx.globalAlpha=a; ctx.fillStyle="rgb("+col+")"; ctx.fillRect(0,0,W,H); ctx.restore(); }
 function render(){
   const cm=cam(), cmx=cm.x, cmy=cm.y;
   ctx.setTransform(dpr,0,0,dpr,0,0);
@@ -1304,7 +1522,8 @@ function render(){
   for(const f of G.floats){ ctx.globalAlpha=Math.min(1,f.life); ctx.fillStyle="#fff";
     ctx.strokeStyle="rgba(0,0,0,.6)"; ctx.lineWidth=3;
     ctx.strokeText(f.txt,f.x-cmx,f.y-cmy); ctx.fillText(f.txt,f.x-cmx,f.y-cmy); } ctx.globalAlpha=1;
-  // sky tint (night) then lights
+  // تدرّج اللون حسب الساعة ثم الإضاءة الليلية
+  skyGrade();
   renderLighting(cmx,cmy);
   // vignette
   const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.75);
@@ -1326,6 +1545,8 @@ function syncHud(){
   $("iSeed").textContent=G.inv.seed; $("iCrop").textContent=G.inv.crop;
   $("iEgg").textContent=G.inv.egg; $("iWood").textContent=G.inv.wood; $("iBerry").textContent=G.inv.berry;
   $("iMilk").textContent=G.inv.milk||0; $("iFuel").textContent=G.inv.fuel||0;
+  if(G.car&&G.car.on){ $("chFuel").textContent=G.inv.fuel||0;
+    $("chSpd").textContent=Math.round(Math.abs(G.car.v)*.85); }
   // contextual hint
   if(mode==="play"){ const w=buildSel?"build":contextFor(G.players[0]);
     if(w){ const txt=HINTS[w]?HINTS[w](buildSel):""; if(txt){$("hint").textContent=txt;$("hint").classList.remove("hidden");} else $("hint").classList.add("hidden"); }
@@ -1339,13 +1560,14 @@ function frame(t){ requestAnimationFrame(frame);
 let lastMode="title";
 function startGame(fresh){ if(fresh){ newGame(); save(); } else if(!load()){ newGame(); save(); }
   mode="play"; hideOv(); $("hud").classList.remove("hidden"); $("inv").classList.remove("hidden");
-  $("stickZone").classList.remove("hidden"); $("btns").classList.remove("hidden");
+  setDriveUI(false);
   sfx("day"); toast(t("tWelcome")); }
 function pauseGame(){ if(mode!=="play")return; mode="pause"; if(G&&G.car&&G.car.on)engineLoop(false); showOv("ovPause"); save(); }
 function resumeGame(){ mode="play"; hideOv(); if(G&&G.car&&G.car.on)engineLoop(true); }
-function toTitle(){ if(G&&G.car)G.car.on=false; engineLoop(false); save(); mode="title"; lastMode="title"; showOv("ovTitle");
+function toTitle(){ if(G&&G.car)G.car.on=false; setDriveUI(false); engineLoop(false); save(); mode="title"; lastMode="title"; showOv("ovTitle");
   $("hud").classList.add("hidden"); $("inv").classList.add("hidden");
-  $("stickZone").classList.add("hidden"); $("btns").classList.add("hidden"); refreshTitle(); }
+  $("stickZone").classList.add("hidden"); $("btns").classList.add("hidden");
+  $("carPad").classList.add("hidden"); $("carHud").classList.add("hidden"); refreshTitle(); }
 function refreshTitle(){ $("btnContinue").style.display=hasSave()?"block":"none"; }
 $("btnContinue").onclick=()=>{ actx(); sfx("ui"); startGame(false); };
 $("btnNew").onclick=()=>{ actx(); sfx("ui");
@@ -1356,6 +1578,30 @@ $("btnAbout2").onclick=()=>{ lastMode="pause"; mode="about"; sfx("ui"); showOv("
 $("btnAboutClose").onclick=()=>{ sfx("ui"); if(lastMode==="pause"){mode="pause";showOv("ovPause");} else {mode="title";showOv("ovTitle");} };
 $("btnResume").onclick=()=>{ sfx("ui"); resumeGame(); };
 $("btnSave").onclick=()=>{ save(); sfx("coin"); toast(t("tSaved")); };
+/* ---------- الحفظ عبر Gmail + الاستيراد ---------- */
+function b64enc(s){ const bytes=new TextEncoder().encode(s); let bin="";
+  for(let i=0;i<bytes.length;i++)bin+=String.fromCharCode(bytes[i]);
+  return btoa(bin).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,""); }
+function b64dec(s){ s=String(s).trim().replace(/-/g,"+").replace(/_/g,"/");
+  while(s.length%4)s+="="; const bin=atob(s);
+  const bytes=new Uint8Array(bin.length);
+  for(let i=0;i<bin.length;i++)bytes[i]=bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes); }
+$("btnGmail").onclick=()=>{ sfx("ui"); save();
+  const code=b64enc(localStorage.getItem(SAVEKEY)||"");
+  try{ if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(code).catch(()=>{}); }catch(e){}
+  toast(t("tGmailOpen"));
+  const href="mailto:baranavisat@gmail.com?subject="+encodeURIComponent(t("gmailSub"))+
+             "&body="+encodeURIComponent(tp("gmailBody",{code:code}));
+  setTimeout(()=>{ window.location.href=href; },150); };
+$("btnImport").onclick=()=>{ sfx("ui");
+  const raw=prompt(t("tImportAsk")); if(raw===null)return;
+  const txt=raw.trim(); if(!txt){ toast(t("tImportBad")); return; }
+  let obj=null;
+  try{ obj=JSON.parse(b64dec(txt)); }catch(e){ try{ obj=JSON.parse(txt); }catch(e2){} }
+  if(!obj||obj.v!==1){ toast(t("tImportBad")); return; }
+  try{ localStorage.setItem(SAVEKEY,JSON.stringify(obj)); }catch(e){ toast(t("tImportBad")); return; }
+  sfx("coin"); toast(t("tImportOk")); startGame(false); };
 $("btnQuit").onclick=()=>{ sfx("ui"); toTitle(); };
 $("btnStoreClose").onclick=()=>{ sfx("ui"); resumeGame(); };
 $("btnCityClose").onclick=()=>{ sfx("ui"); closeCity(); };
