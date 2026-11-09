@@ -1,0 +1,26 @@
+# Secrets — never publish the Android signing key
+android/keystore/
+*.keystore
+credentials.txt
+.env
+
+# Build outputs (published via GitHub Releases instead)
+dist/
+android/dist/
+android/work/
+android/build/
+windows/dist/
+windows/work/
+macos/dist/
+build/icons/AppIcon.iconset/
+
+# Compiled intermediates
+*.o
+bin-arm64
+bin-x86_64
+BaranRamo-bin
+windows/game_html.h
+
+# OS junk
+.DS_Store
+Thumbs.db

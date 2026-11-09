@@ -1,0 +1,1378 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0d1b33">
+<title>BaranRamo — مغامرة مزرعة وبقاء</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none;-webkit-user-select:none}
+  html,body{width:100%;height:100%;overflow:hidden;background:#0d1b33;font-family:-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;touch-action:none;overscroll-behavior:none}
+  #app{position:fixed;inset:0}
+  canvas{position:absolute;inset:0;display:block}
+  .hidden{display:none!important}
+  /* ---------- HUD ---------- */
+  #hud{position:absolute;top:0;left:0;right:0;display:flex;justify-content:space-between;align-items:flex-start;padding:calc(8px + env(safe-area-inset-top)) 12px 0;pointer-events:none;z-index:5}
+  .pill{background:rgba(10,20,45,.72);border:1px solid rgba(242,193,78,.55);color:#ffd76e;border-radius:999px;padding:6px 14px;font-size:15px;font-weight:700;backdrop-filter:blur(6px);box-shadow:0 2px 10px rgba(0,0,0,.35);margin-bottom:6px}
+  #hudL{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+  .bar{display:flex;align-items:center;gap:6px;background:rgba(10,20,45,.72);border:1px solid rgba(255,255,255,.18);border-radius:999px;padding:5px 10px;backdrop-filter:blur(6px)}
+  .bar span{font-size:13px}
+  .track{width:110px;height:10px;background:rgba(0,0,0,.45);border-radius:999px;overflow:hidden}
+  .track i{display:block;height:100%;width:100%;border-radius:999px;transition:width .25s}
+  #hpBar{background:linear-gradient(90deg,#ff5a6a,#ff9aa4)}
+  #hgBar{background:linear-gradient(90deg,#ffb347,#ffe29a)}
+  /* ---------- inventory ---------- */
+  #inv{position:absolute;bottom:calc(96px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);display:flex;gap:7px;z-index:5;pointer-events:none}
+  .chip{background:rgba(10,20,45,.78);border:1px solid rgba(255,255,255,.2);border-radius:12px;color:#fff;font-size:13px;font-weight:700;padding:5px 9px;display:flex;align-items:center;gap:4px;backdrop-filter:blur(6px)}
+  .chip.edible{pointer-events:auto;cursor:pointer;border-color:rgba(120,255,150,.6)}
+  .chip b{color:#ffd76e}
+  /* ---------- hint ---------- */
+  #hint{position:absolute;bottom:calc(64px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);background:rgba(10,20,45,.85);border:1px solid rgba(242,193,78,.6);color:#ffe9b0;font-size:14px;font-weight:700;padding:7px 16px;border-radius:999px;z-index:5;pointer-events:none;white-space:nowrap;max-width:94vw;overflow:hidden;text-overflow:ellipsis}
+  /* ---------- toasts ---------- */
+  #toasts{position:absolute;top:calc(64px + env(safe-area-inset-top));left:50%;transform:translateX(-50%);display:flex;flex-direction:column;gap:6px;align-items:center;z-index:8;pointer-events:none}
+  .toast{background:rgba(10,20,45,.92);border:1px solid rgba(242,193,78,.65);color:#fff;font-size:14px;font-weight:700;padding:8px 18px;border-radius:12px;animation:tin .25s ease-out;box-shadow:0 4px 16px rgba(0,0,0,.4)}
+  @keyframes tin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+  .toast.out{opacity:0;transition:opacity .4s}
+  /* ---------- touch controls ---------- */
+  #stickZone{position:absolute;left:0;bottom:0;width:52%;height:52%;z-index:6}
+  #stickBase{position:absolute;width:110px;height:110px;border-radius:50%;background:rgba(255,255,255,.10);border:2px solid rgba(255,255,255,.3);display:none;pointer-events:none}
+  #stickKnob{position:absolute;left:50%;top:50%;width:52px;height:52px;margin:-26px 0 0 -26px;border-radius:50%;background:rgba(242,193,78,.85);box-shadow:0 2px 8px rgba(0,0,0,.4)}
+  #btns{position:absolute;right:calc(14px + env(safe-area-inset-right));bottom:calc(84px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:14px;z-index:6;align-items:center}
+  #btns button{width:74px;height:74px;border-radius:50%;border:2px solid rgba(242,193,78,.75);background:rgba(10,20,45,.8);color:#ffd76e;font-size:30px;backdrop-filter:blur(6px);box-shadow:0 4px 14px rgba(0,0,0,.4)}
+  #btns button:active{transform:scale(.93);background:rgba(242,193,78,.35)}
+  #btnBuild{font-size:26px!important}
+  /* ---------- overlays ---------- */
+  #overlay{position:absolute;inset:0;z-index:10;display:flex;align-items:center;justify-content:center;background:rgba(5,10,26,.55);backdrop-filter:blur(3px)}
+  #overlay.off{display:none}
+  .ov{display:none;width:100%;max-width:430px;max-height:92vh;overflow-y:auto;padding:16px}
+  .ov.on{display:block}
+  .card{background:linear-gradient(180deg,#12224a 0%,#0c1733 100%);border:1.5px solid rgba(242,193,78,.65);border-radius:20px;padding:22px 20px;box-shadow:0 18px 50px rgba(0,0,0,.55);text-align:center}
+  #logo{width:150px;max-width:56%;border-radius:14px;margin-bottom:6px;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+  h1{font-size:34px;color:#ffd76e;letter-spacing:1px;text-shadow:0 3px 10px rgba(0,0,0,.5);direction:ltr}
+  .sub{color:#cfe0ff;font-size:14px;margin:6px 0 16px}
+  .menu{display:flex;flex-direction:column;gap:10px}
+  button{font-family:inherit}
+  .mbtn{padding:13px 16px;border-radius:14px;border:1.5px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:16px;font-weight:700;cursor:pointer}
+  .mbtn:active{transform:scale(.97)}
+  .mbtn.gold{background:linear-gradient(180deg,#f2c14e,#d99a1f);border-color:#ffe6a6;color:#3a2a00;box-shadow:0 4px 14px rgba(242,193,78,.35)}
+  .mbtn.small{padding:9px 12px;font-size:14px}
+  .row{display:flex;gap:8px}
+  .row .mbtn{flex:1}
+  .cr{color:#8fa6cf;font-size:11.5px;margin-top:14px;line-height:1.7}
+  .cr b{color:#ffd76e}
+  h2{color:#ffd76e;font-size:20px;margin-bottom:12px}
+  .list{display:flex;flex-direction:column;gap:8px;text-align:start}
+  .item{display:flex;justify-content:space-between;align-items:center;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);border-radius:12px;padding:9px 12px;color:#eaf1ff;font-size:14.5px;font-weight:600}
+  .item .pr{color:#ffd76e;font-weight:800}
+  .sbtn{padding:7px 13px;border-radius:10px;border:none;background:#2f9e63;color:#fff;font-weight:800;font-size:13.5px;cursor:pointer}
+  .sbtn.buy{background:#3b6fd4}
+  .sbtn:disabled{opacity:.4}
+  .sec{color:#9fb6e6;font-size:12.5px;font-weight:800;margin:12px 0 4px;text-align:start}
+  .kbd{direction:ltr;display:inline-block;background:#0a1430;border:1px solid #3d5a9a;border-radius:6px;padding:1px 7px;color:#ffd76e;font-size:12px;font-weight:700;margin:0 2px}
+  #hintKeys{color:#7f97c4;font-size:11.5px;margin-top:10px;line-height:2}
+  /* ---------- language switcher ---------- */
+  .langwrap{margin-top:14px;padding-top:12px;border-top:1px dashed rgba(255,255,255,.14)}
+  .langlbl{color:#8fa6cf;font-size:11.5px;font-weight:700;margin-bottom:7px}
+  .langbtns{display:flex;gap:6px;justify-content:center}
+  .lbtn{flex:1;padding:8px 4px;border-radius:10px;border:1.5px solid rgba(255,255,255,.2);background:rgba(255,255,255,.07);color:#cfe0ff;font-size:12.5px;font-weight:700;cursor:pointer;white-space:nowrap}
+  .lbtn:active{transform:scale(.96)}
+  .lbtn.on{background:linear-gradient(180deg,#f2c14e,#d99a1f);border-color:#ffe6a6;color:#3a2a00;box-shadow:0 3px 10px rgba(242,193,78,.3)}
+</style>
+  <!-- PWA / iOS install metadata -->
+  <meta name="theme-color" content="#0d1b33">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="BaranRamo">
+  <meta name="application-name" content="BaranRamo">
+  <meta name="description" content="BaranRamo — open-world farm & survival game by Baran Avisat. © 2026 Baran Avisat, all rights reserved.">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+
+  <div id="hud" class="hidden">
+    <div id="hudR"><div class="pill">💰 <span id="money">0</span>$</div><div class="pill" id="dayTxt">☀️ اليوم 1 · 06:00</div></div>
+    <div id="hudL">
+      <div class="bar"><span>❤️</span><div class="track"><i id="hpBar"></i></div></div>
+      <div class="bar"><span>🍖</span><div class="track"><i id="hgBar"></i></div></div>
+    </div>
+  </div>
+
+  <div id="inv" class="hidden">
+    <div class="chip">🌱 <b id="iSeed">0</b></div>
+    <div class="chip edible" id="cCrop">🥕 <b id="iCrop">0</b></div>
+    <div class="chip">🥚 <b id="iEgg">0</b></div>
+    <div class="chip">🪵 <b id="iWood">0</b></div>
+    <div class="chip edible" id="cBerry">🍓 <b id="iBerry">0</b></div>
+    <div class="chip" data-i18n-title="nMilk" title="حليب">🥛 <b id="iMilk">0</b></div>
+    <div class="chip" data-i18n-title="nFuel" title="وقود">⛽ <b id="iFuel">0</b></div>
+  </div>
+
+  <div id="hint" class="hidden"></div>
+  <div id="toasts"></div>
+
+  <div id="stickZone" class="hidden"><div id="stickBase"><div id="stickKnob"></div></div></div>
+  <div id="btns" class="hidden">
+    <button id="btnBuild" data-i18n-title="btnBuildTitle" title="بناء">🔨</button>
+    <button id="btnAct" data-i18n-title="btnActTitle" title="تفاعل">✋</button>
+  </div>
+
+  <div id="overlay">
+    <!-- العنوان -->
+    <div class="ov on" id="ovTitle">
+      <div class="card">
+        <img id="logo" src="data:image/png;base64,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" alt="Baran Avisat">
+        <h1>BaranRamo</h1>
+        <p class="sub" data-i18n="sub">محاكاة مزرعة وبقاء تعاونية في عالم مفتوح</p>
+        <div class="menu">
+          <button class="mbtn gold" id="btnContinue" data-i18n="bContinue">▶ متابعة اللعب</button>
+          <button class="mbtn" id="btnNew" data-i18n="bNew">🆕 لعبة جديدة</button>
+          <button class="mbtn" id="btnAbout" data-i18n="bAbout">🎖️ عن اللعبة وحقوق الملكية</button>
+          <div class="row">
+            <button class="mbtn small" id="btnSfx">🔊 المؤثرات: تعمل</button>
+            <button class="mbtn small" id="btnMus">🎵 الموسيقى: مغلقة</button>
+          </div>
+        </div>
+        <div class="langwrap">
+          <div class="langlbl" data-i18n="langLabel">🌐 اللغة</div>
+          <div class="langbtns">
+            <button class="lbtn" data-lang="ar">🇸🇦 عربي</button>
+            <button class="lbtn" data-lang="en">🇬🇧 English</button>
+            <button class="lbtn" data-lang="tr">🇹🇷 Türkçe</button>
+          </div>
+        </div>
+        <p class="cr" data-i18n-html="crTitle"><b>© 2026 Baran Avisat</b> — جميع الحقوق محفوظة<br>المؤلف والمصمم والمخرج: <b>Baran Avisat</b></p>
+      </div>
+    </div>
+    <!-- الإيقاف المؤقت -->
+    <div class="ov" id="ovPause">
+      <div class="card">
+        <h2 data-i18n="pauseT">⏸️ إيقاف مؤقت</h2>
+        <div class="menu">
+          <button class="mbtn gold" id="btnResume" data-i18n="bResume">▶ متابعة</button>
+          <button class="mbtn" id="btnSave" data-i18n="bSave">💾 حفظ الآن</button>
+          <button class="mbtn" id="btnAbout2" data-i18n="bAbout">🎖️ عن اللعبة وحقوق الملكية</button>
+          <button class="mbtn" id="btnQuit" data-i18n="bMenu">🏠 القائمة الرئيسية</button>
+        </div>
+        <div class="langwrap">
+          <div class="langlbl" data-i18n="langLabel">🌐 اللغة</div>
+          <div class="langbtns">
+            <button class="lbtn" data-lang="ar">🇸🇦 عربي</button>
+            <button class="lbtn" data-lang="en">🇬🇧 English</button>
+            <button class="lbtn" data-lang="tr">🇹🇷 Türkçe</button>
+          </div>
+        </div>
+        <p class="cr" data-i18n-html="keysLine">التحريك: <span class="kbd">W A S D</span> · الفعل: <span class="kbd">F</span> · البناء: <span class="kbd">G</span> · لاعب 2: <span class="kbd">P</span> + الأسهم و <span class="kbd">.</span></p>
+      </div>
+    </div>
+    <!-- المتجر -->
+    <div class="ov" id="ovStore">
+      <div class="card">
+        <h2 data-i18n="storeT">🏪 متجر البلد</h2>
+        <div class="sec" data-i18n="secSell">📥 بيع المحاصيل</div>
+        <div class="list" id="sellList"></div>
+        <div class="sec" data-i18n="secBuy">📤 شراء</div>
+        <div class="list" id="buyList"></div>
+        <div class="menu" style="margin-top:14px">
+          <button class="mbtn gold" id="btnSellAll" data-i18n="bSellAll">💰 بيع كل شيء</button>
+          <button class="mbtn" id="btnStoreClose" data-i18n="bClose">إغلاق</button>
+        </div>
+        <p class="cr"><span data-i18n="balLabel">💰 رصيدك:</span> <b><span id="stMoney">0</span>$</b></p>
+      </div>
+    </div>
+    <!-- المدينة: السوق / الدكان / الوقود / الأراضي -->
+    <div class="ov" id="ovCity">
+      <div class="card">
+        <h2 id="cityT">🏪</h2>
+        <div class="sec" id="cityS1" data-i18n="secSell">📥 بيع المحاصيل</div>
+        <div class="list" id="cityL1"></div>
+        <div class="sec" id="cityS2" data-i18n="secBuy">📤 شراء</div>
+        <div class="list" id="cityL2"></div>
+        <div class="menu" style="margin-top:14px">
+          <button class="mbtn" id="btnCityClose" data-i18n="bClose">إغلاق</button>
+        </div>
+        <p class="cr"><span data-i18n="balLabel">💰 رصيدك:</span> <b><span id="cityMoney">0</span>$</b></p>
+      </div>
+    </div>
+    <!-- البناء -->
+    <div class="ov" id="ovBuild">
+      <div class="card">
+        <h2 data-i18n="buildT">🔨 وضع البناء</h2>
+        <div class="list" id="buildList"></div>
+        <div class="menu" style="margin-top:14px">
+          <button class="mbtn" id="btnBuildClose" data-i18n="bClose">إغلاق</button>
+        </div>
+        <p class="cr" data-i18n-html="buildHelp">اختر مجسماً ثم اضغط زر الفعل <span class="kbd">F</span> / ✋ لوضعه على الأرض أمامك</p>
+      </div>
+    </div>
+    <!-- الحقوق -->
+    <div class="ov" id="ovAbout">
+      <div class="card">
+        <img id="logo2" src="data:image/png;base64,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" alt="Baran Avisat" style="width:130px;border-radius:14px;margin-bottom:8px">
+        <h2>🎖️ BaranRamo</h2>
+        <p class="sub" style="margin-top:0" data-i18n="aboutSub">لعبة مزرعة وبقاء تعاونية · مبنية بالكامل بموارد مجانية 100%</p>
+        <div class="list">
+          <div class="item"><span data-i18n="rAuthor">✍️ المؤلف والمصمم والمخرج</span><span class="pr">Baran Avisat</span></div>
+          <div class="item"><span data-i18n="rEmail">📧 البريد الإلكتروني</span><span class="pr" style="direction:ltr">Baranavisat@gmail.com</span></div>
+          <div class="item"><span data-i18n="rWa">📱 واتساب للدعم</span><span class="pr" style="direction:ltr">+90 531 326 37 22</span></div>
+          <div class="item"><span data-i18n="rGit">🐙 GitHub</span><span class="pr" style="direction:ltr">aoodiakdiro0001-ops</span></div>
+        </div>
+        <div class="menu" style="margin-top:14px">
+          <button class="mbtn gold" id="btnAboutClose" data-i18n="bBack">رجوع</button>
+        </div>
+        <p class="cr" data-i18n-html="crAbout"><b>© 2026 Baran Avisat — جميع الحقوق محفوظة لهذا العمل</b><br>شكراً لعبك BaranRamo ❤️ شاركه مع أصدقائك!</p>
+      </div>
+    </div>
+  </div>
+</div>
+<script>
+"use strict";
+/* ============================================================
+   BaranRamo © 2026 Baran Avisat — All Rights Reserved
+   Open-World Co-op Farm & Survival Prototype (HTML5 · 100% free)
+   ============================================================ */
+const $=id=>document.getElementById(id);
+const cv=$("cv"), ctx=cv.getContext("2d");
+const TILE=32, MAP=40, DAYLEN=150, SAVEKEY="baranramo_save_v1";
+const PRICE={crop:8, egg:12, wood:2, berry:5, milk:10};
+const BUY={seed:3, seed5:12, chicken:25, cow:60};
+const BUILD={
+  fence:   {cost:2,  nk:"bnFence",  emoji:"🚧"},
+  coop:    {cost:8,  nk:"bnCoop",   emoji:"🏠"},
+  cottage: {cost:20, nk:"bnCottage",emoji:"🏡"}
+};
+const ICON={crop:"🥕", egg:"🥚", wood:"🪵", berry:"🍓", seed:"🌱", milk:"🥛", fuel:"⛽"};
+/* buyable land plots + city building art */
+const PLOTS=[
+ {id:"A",x:31,y:14,w:5,h:5,base:120},{id:"B",x:4,y:13,w:6,h:6,base:90},
+ {id:"C",x:14,y:31,w:6,h:5,base:100},{id:"D",x:31,y:30,w:5,h:6,base:140}];
+const CITYBLD={
+ market:{c:"#2f9e63",c2:"#1f7a4a",lbl:"sgMarket"}, shop:{c:"#e08a3c",c2:"#b56a26",lbl:"sgShop"},
+ fuel:{c:"#5a6472",c2:"#3f4752",lbl:"sgFuel"},   land:{c:"#3b6fd4",c2:"#2a53a8",lbl:"sgLand"}};
+const FUEL_PACK=5, FUEL_PRICE=5;
+let W=0,H=0,TS=32,dpr=1, lightCv, lc;
+let G=null, mode="title", lastT=0, hintLast="", saveTimer=0;
+let p2on=false, buildSel=null;
+const keys=Object.create(null);
+const joy={active:false,id:null,bx:0,by:0,dx:0,dy:0};
+const queued=[false,false];
+const MUS={on:false,step:0,timer:null};
+
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const clamp=(v,a,b)=>v<a?a:v>b?b:v;
+const T="x,y", tileKey=(x,y)=>x+","+y;
+function toast(msg){const d=document.createElement("div");d.className="toast";d.textContent=msg;$("toasts").appendChild(d);setTimeout(()=>{d.classList.add("out");setTimeout(()=>d.remove(),450)},2100)}
+function showOv(id){document.querySelectorAll(".ov").forEach(o=>o.classList.remove("on"));$("overlay").classList.remove("off");if(id)$(id).classList.add("on")}
+function hideOv(){$("overlay").classList.add("off");document.querySelectorAll(".ov").forEach(o=>o.classList.remove("on"))}
+/* ========================= I18N (ar / en / tr) ========================= */
+const I18N={
+ ar:{
+   docTitle:"BaranRamo — مغامرة مزرعة وبقاء",
+   sub:"محاكاة مزرعة وبقاء تعاونية في عالم مفتوح",
+   bContinue:"▶ متابعة اللعب", bNew:"🆕 لعبة جديدة", bAbout:"🎖️ عن اللعبة وحقوق الملكية",
+   sfxOn:"🔊 المؤثرات: تعمل", sfxOff:"🔊 المؤثرات: مغلقة",
+   musOn:"🎵 الموسيقى: تعمل", musOff:"🎵 الموسيقى: مغلقة",
+   crTitle:'<b>© 2026 Baran Avisat</b> — جميع الحقوق محفوظة<br>المؤلف والمصمم والمخرج: <b>Baran Avisat</b>',
+   pauseT:"⏸️ إيقاف مؤقت", bResume:"▶ متابعة", bSave:"💾 حفظ الآن", bMenu:"🏠 القائمة الرئيسية",
+   keysLine:'التحريك: <span class="kbd">W A S D</span> · الفعل: <span class="kbd">F</span> · البناء: <span class="kbd">G</span> · لاعب 2: <span class="kbd">P</span> + الأسهم و <span class="kbd">.</span>',
+   storeT:"🏪 متجر البلد", secSell:"📥 بيع المحاصيل", secBuy:"📤 شراء",
+   bSellAll:"💰 بيع كل شيء", bClose:"إغلاق", balLabel:"💰 رصيدك:",
+   buildT:"🔨 وضع البناء",
+   buildHelp:'اختر مجسماً ثم اضغط زر الفعل <span class="kbd">F</span> / ✋ لوضعه على الأرض أمامك',
+   aboutSub:"لعبة مزرعة وبقاء تعاونية · مبنية بالكامل بموارد مجانية 100%",
+   rAuthor:"✍️ المؤلف والمصمم والمخرج", rEmail:"📧 البريد الإلكتروني",
+   rWa:"📱 واتساب للدعم", rGit:"🐙 GitHub", bBack:"رجوع",
+   crAbout:'<b>© 2026 Baran Avisat — جميع الحقوق محفوظة لهذا العمل</b><br>شكراً لعبك BaranRamo ❤️ شاركه مع أصدقائك!',
+   langLabel:"🌐 اللغة", btnBuildTitle:"بناء", btnActTitle:"تفاعل",
+   wasdHint:"WASD<br>حرّك",
+   hBuild:"🔨 {n} ({c} خشب) — ✋ للوضع · 🔨 للخروج", hStore:"🏪 افتح المتجر",
+   hSleep:"🌙 نم حتى الصباح", hHouse:"🏠 بيتك", hBreakFence:"🚧 أزل السياج (+1 خشب)",
+   hCoop:"🐔 حظيرة الدجاج", hBerry:"🍓 اجمع التوت", hHarvest:"🥕 احصد المحصول",
+   hWater:"💧 اسقِ المحصول", hChop:"🪓 اقطع الشجرة", hFeed:"🌾 انعش الدجاجة (1 محصول)",
+   hPet:"🐔 الدجاجة ودّية", hPlant:"🌱 ازرع (بذرة واحدة)", hTill:"⛏️ حرث الأرض",
+   tBounds:"🚫 خارج حدود العالم", tBusy:"🚫 الموقع مشغول",
+   tNeedWood:"🚫 تحتاج {c} خشب — اقطع الأشجار!", tBuilt:"تم بناء {n}",
+   tFell:"🪓 سقطت الشجرة!", tFenceOut:"↩️ أزلت السياج (+1 خشب)",
+   tSeedBonus:"🌱 بذرة إضافية!", tHenHappy:"🐔 الدجاجة سعيدة! ستبيض قريباً",
+   tHenPet:"🐔 الدجاجة ودّية!", tSlept:"☀️ نمت حتى الصباح — اليوم {d}",
+   tHouse:"🏠 بيتك الجميل — نم هنا ليلاً", tCoopInfo:"🐔 حظيرة الدجاج — انعش دجاجتك بالمحصول",
+   tNoItem:"🚫 لا يوجد {n}", tNotHungry:"😋 لا أشعر بالجوع",
+   tFreshCrop:"محصول طازج!", tFreshBerry:"توت لذيذ!",
+   tWoke:"💫 استيقظت متعباً… خسرت جزءاً من المال", tNewDay:"☀️ اليوم {d} · حصاد جديد!",
+    tAway:"⏱️ غبت {h} ساعة — تطورت المزرعة تلقائياً!",
+   tP2Out:"انسحب اللاعب 2", tP2In:"🎉 انضم اللاعب 2! الأسهم للتحرك و . للتفاعل",
+   tNewHen:"🐔 دجاجة جديدة في الحظيرة!", tBuildMode:"🔨 وضع البناء: {n} — وجّه اللاعب ثم اضغط ✋",
+   tWelcome:"🌅 مرحباً بك في BaranRamo! ابدأ بالحرث ⛏️", tSaved:"💾 تم الحفظ!",
+   tSoldAll:"💰 بيعت كل شيء: +{n}$", tNothing:"🚫 لا شيء للبيع",
+   tNewWarn:"⚠️ لعبة جديدة ستمسح حفظك الحالي. هل أنت متأكد؟",
+   hudDay:"اليوم {d} · {h}",
+   nCrop:"محصول", nEgg:"بيض", nWood:"خشب", nBerry:"توت",
+   bSeed:"🌱 بذرة", bSeed5:"🌱×5 بذور", bChicken:"🐔 دجاجة",
+   bSell:"بيع", bBuy:"شراء", bSelect:"اختيار",
+   bnFence:"سياج", bnCoop:"حظيرة", bnCottage:"بيت صغير",
+    hMarket:"🏪 السوق — بيع بأسعار اليوم المتغيرة", hShop:"🛒 الدكان — أكلات ومشروبات",
+    hFuel:"⛽ محطة الوقود — اشترِ بنزين للسيارة", hLand:"🏛️ مكتب الأراضي — اشترِ قطعة أرض",
+    hBarn:"🐄 الحظيرة — الأبقار تعطينا الحليب",
+    tBarn:"🐄 الحظيرة — اقرَب الأبقار للحصول على الحليب", tNeedLand:"🚫 البناء هنا يحتاج أرض تملكها — تواصل مع مكتب الأراضي!",
+    marketT:"🏪 السوق البلدي", shopT:"🛒 الدكان", fuelT:"⛽ محطة الوقود", landT:"🏛️ مكتب الأراضي",
+    secBuyFood:"🍫 أكلات ومشروبات", secFuel:"⛽ الوقود", secLand:"🏞️ قطع الأراضي",
+    bBread:"🍞 خبز", bJuice:"🧃 عصير", bCandy:"🍬 حلوى",
+    bOwned:"✔ مملوكة", landNote:"الأسعار تتغير كل يوم حسب العرض والطلب",
+    tMeal:"🍽️ {n} — شُبع +{h}", tGotFuel:"⛽ حصلت على {n} لتر وقود",
+    tBought:"✅ تم شراء {n}", tNoMoney:"🚫 لا تملك مالاً كافياً",
+    tPlotBought:"🏞️ اشتريت الأرض {id} — ابدأ البناء فيها!",
+    plotN:"أرض {id} ({n} م²)", fuelPack:"×{n} لتر", fuelLeft:"الوقود المتوفر",
+    nMilk:"حليب", nFuel:"وقود",
+    bCow:"🐄 بقرة", tNewCow:"🐄 بقرة جديدة رعت في الحظيرة!",
+    hCow:"🐄 بقرة — اضغط الفعل للتحية", tCow:"🐄 مُووو! البقرة تراقبك بنظرة هادئة",
+    hCar:"🚗 سيارة — اضغط الفعل للركوب", hCarExit:"🚪 نزول من السيارة",
+    tCarIn:"🚗 أسهم أو WASD للقيادة · H بوق · F نزول", tCarOut:"🚪 نزلت من السيارة",
+    tNoFuel:"⛽ انتهى الوقود — اشترِ من محطة الوقود!",
+    sgMarket:"سوق", sgShop:"دكان", sgFuel:"وقود", sgLand:"أراضٍ", sgStore:"متجر"
+  },
+ en:{
+   docTitle:"BaranRamo — Farm & Survival Adventure",
+   sub:"Co-op farm & survival sim in an open world",
+   bContinue:"▶ Continue", bNew:"🆕 New Game", bAbout:"🎖️ About & Rights",
+   sfxOn:"🔊 Sound FX: On", sfxOff:"🔊 Sound FX: Off",
+   musOn:"🎵 Music: On", musOff:"🎵 Music: Off",
+   crTitle:'<b>© 2026 Baran Avisat</b> — All Rights Reserved<br>Author, Designer & Director: <b>Baran Avisat</b>',
+   pauseT:"⏸️ Paused", bResume:"▶ Resume", bSave:"💾 Save Now", bMenu:"🏠 Main Menu",
+   keysLine:'Move: <span class="kbd">W A S D</span> · Act: <span class="kbd">F</span> · Build: <span class="kbd">G</span> · Player 2: <span class="kbd">P</span> + Arrows &amp; <span class="kbd">.</span>',
+   storeT:"🏪 Village Store", secSell:"📥 Sell Crops", secBuy:"📤 Buy",
+   bSellAll:"💰 Sell All", bClose:"Close", balLabel:"💰 Your balance:",
+   buildT:"🔨 Build Mode",
+   buildHelp:'Pick a structure, then press <span class="kbd">F</span> / ✋ to place it on the tile in front of you',
+   aboutSub:"Co-op farm & survival game · built with 100% free resources",
+   rAuthor:"✍️ Author, Designer & Director", rEmail:"📧 Email",
+   rWa:"📱 WhatsApp Support", rGit:"🐙 GitHub", bBack:"Back",
+   crAbout:'<b>© 2026 Baran Avisat — All rights reserved for this work</b><br>Thanks for playing BaranRamo ❤️ Share it with your friends!',
+   langLabel:"🌐 Language", btnBuildTitle:"build", btnActTitle:"interact",
+   wasdHint:"WASD<br>move",
+   hBuild:"🔨 {n} ({c} wood) — ✋ place · 🔨 exit", hStore:"🏪 Open the store",
+   hSleep:"🌙 Sleep till morning", hHouse:"🏠 Your home", hBreakFence:"🚧 Remove fence (+1 wood)",
+   hCoop:"🐔 Chicken coop", hBerry:"🍓 Pick berries", hHarvest:"🥕 Harvest the crop",
+   hWater:"💧 Water the crop", hChop:"🪓 Chop the tree", hFeed:"🌾 Feed the hen (1 crop)",
+   hPet:"🐔 The hen is friendly", hPlant:"🌱 Plant (one seed)", hTill:"⛏️ Till the soil",
+   tBounds:"🚫 Outside the world bounds", tBusy:"🚫 That spot is occupied",
+   tNeedWood:"🚫 Need {c} wood — chop some trees!", tBuilt:"built {n}",
+   tFell:"🪓 The tree fell!", tFenceOut:"↩️ Fence removed (+1 wood)",
+   tSeedBonus:"🌱 Bonus seed!", tHenHappy:"🐔 The hen is happy! Eggs soon",
+   tHenPet:"🐔 The hen is friendly!", tSlept:"☀️ Slept till morning — Day {d}",
+   tHouse:"🏠 Your lovely home — sleep here at night", tCoopInfo:"🐔 Chicken coop — feed your hen a crop",
+   tNoItem:"🚫 No {n}", tNotHungry:"😋 Not hungry",
+   tFreshCrop:"Fresh crop!", tFreshBerry:"Tasty berries!",
+   tWoke:"💫 Woke up tired… lost some money", tNewDay:"☀️ Day {d} · New harvest!",
+    tAway:"⏱️ Away for {h}h — the farm progressed automatically!",
+   tP2Out:"Player 2 left", tP2In:"🎉 Player 2 joined! Arrows to move, . to act",
+   tNewHen:"🐔 New hen in the coop!", tBuildMode:"🔨 Build mode: {n} — face a spot then press ✋",
+   tWelcome:"🌅 Welcome to BaranRamo! Start by tilling ⛏️", tSaved:"💾 Game saved!",
+   tSoldAll:"💰 Sold everything: +{n}$", tNothing:"🚫 Nothing to sell",
+   tNewWarn:"⚠️ A new game will erase your current save. Are you sure?",
+   hudDay:"Day {d} · {h}",
+   nCrop:"Crop", nEgg:"Eggs", nWood:"Wood", nBerry:"Berries",
+   bSeed:"🌱 Seed", bSeed5:"🌱×5 Seeds", bChicken:"🐔 Chicken",
+   bSell:"Sell", bBuy:"Buy", bSelect:"Pick",
+   bnFence:"Fence", bnCoop:"Coop", bnCottage:"Cottage",
+    hMarket:"🏪 Market — sell at today's changing prices", hShop:"🛒 Shop — food & drinks",
+    hFuel:"⛽ Fuel station — buy gas for the car", hLand:"🏛️ Land office — buy a plot",
+    hBarn:"🐄 Barn — cows give us milk",
+    tBarn:"🐄 Barn — get close to the cows for milk", tNeedLand:"🚫 Building here needs land you own — visit the land office!",
+    marketT:"🏪 Town Market", shopT:"🛒 Corner Shop", fuelT:"⛽ Fuel Station", landT:"🏛️ Land Office",
+    secBuyFood:"🍫 Food & Drinks", secFuel:"⛽ Fuel", secLand:"🏞️ Land Plots",
+    bBread:"🍞 Bread", bJuice:"🧃 Juice", bCandy:"🍬 Candy",
+    bOwned:"✔ Owned", landNote:"Prices change every day with supply and demand",
+    tMeal:"🍽️ {n} — hunger +{h}", tGotFuel:"⛽ Got {n} litres of fuel",
+    tBought:"✅ Bought {n}", tNoMoney:"🚫 Not enough money",
+    tPlotBought:"🏞️ You bought plot {id} — start building on it!",
+    plotN:"Plot {id} ({n} m²)", fuelPack:"×{n} L", fuelLeft:"Fuel in tank",
+    nMilk:"Milk", nFuel:"Fuel",
+    bCow:"🐄 Cow", tNewCow:"🐄 A new cow joined the barn!",
+    hCow:"🐄 Cow — press action to say hi", tCow:"🐄 Moo! The cow watches you calmly",
+    hCar:"🚗 Car — press action to get in", hCarExit:"🚪 Get out of the car",
+    tCarIn:"🚗 Arrows or WASD to drive · H horn · F exit", tCarOut:"🚪 You got out of the car",
+    tNoFuel:"⛽ Out of fuel — buy some at the gas station!",
+    sgMarket:"Market", sgShop:"Shop", sgFuel:"Fuel", sgLand:"Land", sgStore:"Store"
+  },
+ tr:{
+   docTitle:"BaranRamo — Çiftlik ve Hayatta Kalma Macerası",
+   sub:"Açık dünyada kooperatif çiftlik ve hayatta kalma simülasyonu",
+   bContinue:"▶ Devam Et", bNew:"🆕 Yeni Oyun", bAbout:"🎖️ Hakkında ve Haklar",
+   sfxOn:"🔊 Ses Efektleri: Açık", sfxOff:"🔊 Ses Efektleri: Kapalı",
+   musOn:"🎵 Müzik: Açık", musOff:"🎵 Müzik: Kapalı",
+   crTitle:'<b>© 2026 Baran Avisat</b> — Tüm Hakları Saklıdır<br>Yazar, Tasarımcı ve Yönetmen: <b>Baran Avisat</b>',
+   pauseT:"⏸️ Duraklatıldı", bResume:"▶ Devam", bSave:"💾 Kaydet", bMenu:"🏠 Ana Menü",
+   keysLine:'Hareket: <span class="kbd">W A S D</span> · Eylem: <span class="kbd">F</span> · İnşa: <span class="kbd">G</span> · Oyuncu 2: <span class="kbd">P</span> + Oklar ve <span class="kbd">.</span>',
+   storeT:"🏪 Köy Dükkanı", secSell:"📥 Hasat Sat", secBuy:"📤 Satın Al",
+   bSellAll:"💰 Hepsini Sat", bClose:"Kapat", balLabel:"💰 Bakiyen:",
+   buildT:"🔨 İnşa Modu",
+   buildHelp:'Bir yapı seç, sonra <span class="kbd">F</span> / ✋ ile önündeki kareye yerleştir',
+   aboutSub:"Kooperatif çiftlik ve hayatta kalma oyunu · %100 ücretsiz kaynaklarla yapıldı",
+   rAuthor:"✍️ Yazar, Tasarımcı ve Yönetmen", rEmail:"📧 E-posta",
+   rWa:"📱 WhatsApp Destek", rGit:"🐙 GitHub", bBack:"Geri",
+   crAbout:'<b>© 2026 Baran Avisat — Bu eserin tüm hakları saklıdır</b><br>BaranRamo oynadığın için teşekkürler ❤️ Arkadaşlarınla paylaş!',
+   langLabel:"🌐 Dil", btnBuildTitle:"inşa", btnActTitle:"etkileşim",
+   wasdHint:"WASD<br>yürü",
+   hBuild:"🔨 {n} ({c} odun) — ✋ yerleştir · 🔨 çık", hStore:"🏪 Dükkanı aç",
+   hSleep:"🌙 Sabaha kadar uyu", hHouse:"🏠 Evin", hBreakFence:"🚧 Çiti kaldır (+1 odun)",
+   hCoop:"🐔 Tavuk kümesi", hBerry:"🍓 Yaban mersini topla", hHarvest:"🥕 Hasadı topla",
+   hWater:"💧 Bitkiyi sula", hChop:"🪓 Ağacı kes", hFeed:"🌾 Tavuğu besle (1 hasat)",
+   hPet:"🐔 Tavuk uysal", hPlant:"🌱 Ek (1 tohum)", hTill:"⛏️ Toprağı sürüle",
+   tBounds:"🚫 Dünya sınırları dışında", tBusy:"🚫 Orası dolu",
+   tNeedWood:"🚫 {c} odun gerek — ağaç kes!", tBuilt:"{n} inşa edildi",
+   tFell:"🪓 Ağaç devrildi!", tFenceOut:"↩️ Çit kaldırıldı (+1 odun)",
+   tSeedBonus:"🌱 Ekstra tohum!", tHenHappy:"🐔 Tavuk mutlu! Yakında yumurtlayacak",
+   tHenPet:"🐔 Tavuk uysal!", tSlept:"☀️ Sabaha kadar uyudun — Gün {d}",
+   tHouse:"🏠 Güzel evin — geceleri burada uyu", tCoopInfo:"🐔 Tavuk kümesi — tavuğunu hasatla besle",
+   tNoItem:"🚫 {n} yok", tNotHungry:"😋 Aç değilim",
+   tFreshCrop:"Taze hasat!", tFreshBerry:"Nefis yaban mersinleri!",
+   tWoke:"💫 Yorgun uyandın… biraz para kaybettin", tNewDay:"☀️ Gün {d} · Yeni hasat!",
+    tAway:"⏱️ {h} saat uzaktaydın — çiftlik kendiliğinden gelişti!",
+   tP2Out:"Oyuncu 2 ayrıldı", tP2In:"🎉 Oyuncu 2 katıldı! Oklarla yürü, . ile eylem",
+   tNewHen:"🐔 Kümese yeni tavuk!", tBuildMode:"🔨 İnşa modu: {n} — bir noktaya dön, sonra ✋ bas",
+   tWelcome:"🌅 BaranRamo'ya hoş geldin! Toprağı sürerek başla ⛏️", tSaved:"💾 Kaydedildi!",
+   tSoldAll:"💰 Hepsini sattın: +{n}$", tNothing:"🚫 Satılacak bir şey yok",
+   tNewWarn:"⚠️ Yeni oyun mevcut kaydını silecek. Emin misin?",
+   hudDay:"Gün {d} · {h}",
+   nCrop:"Hasat", nEgg:"Yumurta", nWood:"Odun", nBerry:"Yaban mersini",
+   bSeed:"🌱 Tohum", bSeed5:"🌱×5 Tohum", bChicken:"🐔 Tavuk",
+   bSell:"Sat", bBuy:"Satın Al", bSelect:"Seç",
+   bnFence:"Çit", bnCoop:"Kümes", bnCottage:"Küçük Ev",
+    hMarket:"🏪 Pazar — günlük değişen fiyatlara sat", hShop:"🛒 Bakkal — yiyecek ve içecek",
+    hFuel:"⛽ Yakıt istasyonu — arabaya benzin al", hLand:"🏛️ Tapu dairesi — arsa satın al",
+    hBarn:"🐄 Ahır — inekler bize süt verir",
+    tBarn:"🐄 Ahır — süt için ineklere yaklaş", tNeedLand:"🚫 Buraya inşa etmek için senin arsan olmalı — tapu dairesine git!",
+    marketT:"🏪 Şehir Pazarı", shopT:"🛒 Bakkal", fuelT:"⛽ Yakıt İstasyonu", landT:"🏛️ Tapu Dairesi",
+    secBuyFood:"🍫 Yiyecek ve İçecek", secFuel:"⛽ Yakıt", secLand:"🏞️ Arsalar",
+    bBread:"🍞 Ekmek", bJuice:"🧃 Meyve Suyu", bCandy:"🍬 Şeker",
+    bOwned:"✔ Senin", landNote:"Fiyatlar her gün arz ve talebe göre değişir",
+    tMeal:"🍽️ {n} — açlık +{h}", tGotFuel:"⛽ {n} litre yakıt aldın",
+    tBought:"✅ {n} satın alındı", tNoMoney:"🚫 Yeterli paran yok",
+    tPlotBought:"🏞️ {id} arsasını satın aldın — inşaya başla!",
+    plotN:"Arsa {id} ({n} m²)", fuelPack:"×{n} L", fuelLeft:"Depodaki yakıt",
+    nMilk:"Süt", nFuel:"Yakıt",
+    bCow:"🐄 İnek", tNewCow:"🐄 Yeni bir inek ahıra katıldı!",
+    hCow:"🐄 İnek — selam vermek için eyleme bas", tCow:"🐄 Möğö! İnek seni sakin izliyor",
+    hCar:"🚗 Araba — binmek için eyleme bas", hCarExit:"🚪 Arabadan in",
+    tCarIn:"🚗 Sürmek için Ok veya WASD · H korna · F in", tCarOut:"🚪 Arabadan indin",
+    tNoFuel:"⛽ Yakıt bitti — benzin istasyonundan al!",
+    sgMarket:"Pazar", sgShop:"Bakkal", sgFuel:"Yakıt", sgLand:"Arsa", sgStore:"Dükkan"
+  },
+};
+function detectLang(){ try{
+    const q=new URLSearchParams(location.search).get("lang"); if(q&&I18N[q])return q;
+    const st=localStorage.getItem("baranramo_lang"); if(st&&I18N[st])return st;
+    const nl=(navigator.language||"").toLowerCase();
+    if(nl.indexOf("tr")===0)return "tr"; if(nl.indexOf("en")===0)return "en";
+  }catch(e){} return "ar"; }
+let LANG=detectLang();
+function t(k){ const d=I18N[LANG]||I18N.ar; return (k in d)?d[k]:((k in I18N.ar)?I18N.ar[k]:k); }
+function tp(k,v){ let s=t(k); for(const a in v) s=s.split("{"+a+"}").join(v[a]); return s; }
+function audioLabels(){ const b1=$("btnSfx"), b2=$("btnMus");
+  if(b1)b1.textContent=t(AU.sfxOn?"sfxOn":"sfxOff");
+  if(b2)b2.textContent=t(MUS.on?"musOn":"musOff"); }
+function applyLang(){ const h=document.documentElement;
+  h.lang=LANG; h.dir=(LANG==="ar")?"rtl":"ltr"; document.title=t("docTitle");
+  document.querySelectorAll("[data-i18n]").forEach(el=>{ el.textContent=t(el.getAttribute("data-i18n")); });
+  document.querySelectorAll("[data-i18n-html]").forEach(el=>{ el.innerHTML=t(el.getAttribute("data-i18n-html")); });
+  document.querySelectorAll("[data-i18n-title]").forEach(el=>{ el.title=t(el.getAttribute("data-i18n-title")); });
+  document.querySelectorAll(".lbtn").forEach(b=>{ const on=b.dataset.lang===LANG;
+    b.classList.toggle("on",on); b.setAttribute("aria-pressed",on?"true":"false"); });
+  audioLabels();
+  if(mode==="store"&&typeof renderStore==="function")renderStore();
+  if(mode==="city"&&typeof renderCity==="function")renderCity();
+  if(mode==="buildmenu"&&typeof renderBuildList==="function")renderBuildList();
+  if(G&&typeof syncHud==="function")syncHud(); }
+function setLang(l){ if(!I18N[l])l="ar"; LANG=l;
+  try{localStorage.setItem("baranramo_lang",l)}catch(e){} applyLang(); }
+function initLangUI(){ document.querySelectorAll(".lbtn").forEach(b=>{
+  b.onclick=()=>{ sfx("ui"); setLang(b.dataset.lang); }; }); }
+/* ======================================================================== */
+
+/* ============================ AUDIO (3D spatial engine) ============================ */
+const AU={ctx:null,sfxOn:true,master:null,verb:null,verbG:null,air:null,eng:null,engG:null,ambT:0,ambNext:2};
+function actx(){ if(!AU.ctx){ try{AU.ctx=new (window.AudioContext||window.webkitAudioContext)()}catch(e){return null} }
+  if(AU.ctx&&AU.ctx.state==="suspended")AU.ctx.resume(); if(AU.ctx&&!AU.master)initAudio(); return AU.ctx; }
+function makeIR(sec,decay){ const c=AU.ctx, n=Math.floor(c.sampleRate*sec), b=c.createBuffer(2,n,c.sampleRate);
+  for(let ch=0;ch<2;ch++){ const d=b.getChannelData(ch);
+    for(let i=0;i<n;i++){ const t=i/n; d[i]=(Math.random()*2-1)*Math.pow(1-t,decay); } }
+  return b; }
+function initAudio(){ const c=AU.ctx;
+  AU.master=c.createGain(); AU.master.gain.value=.9; AU.master.connect(c.destination);
+  try{ AU.verb=c.createConvolver(); AU.verb.buffer=makeIR(1.6,3.2);
+    AU.verbG=c.createGain(); AU.verbG.gain.value=.35;
+    AU.verb.connect(AU.verbG); AU.verbG.connect(AU.master); }catch(e){}
+  // gentle air / noise floor used by ambience + engine
+  try{ const n=c.sampleRate*2, b=c.createBuffer(1,n,c.sampleRate), d=b.getChannelData(0);
+    for(let i=0;i<n;i++)d[i]=Math.random()*2-1;
+    const src=c.createBufferSource(); src.buffer=b; src.loop=true;
+    const f=c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=520;
+    AU.airG=c.createGain(); AU.airG.gain.value=0;
+    src.connect(f); f.connect(AU.airG); AU.airG.connect(AU.master); src.start();
+  }catch(e){} }
+function tone(f,dur,type,vol,slide,dest){ const c=AU.ctx; if(!c)return; const t=c.currentTime;
+  const o=c.createOscillator(),g=c.createGain();
+  o.type=type; o.frequency.setValueAtTime(f,t); if(slide)o.frequency.exponentialRampToValueAtTime(Math.max(20,slide),t+dur);
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+.012); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g); g.connect(dest||AU.master); if(AU.verb&&dest!==AU.master){ const s=c.createGain(); s.gain.value=.22; g.connect(s); s.connect(AU.verb); }
+  o.start(t); o.stop(t+dur+.03); }
+function toneAt(c,t,f,d,type,vol){ const o=c.createOscillator(),g=c.createGain(); o.type=type; o.frequency.value=f;
+  g.gain.setValueAtTime(.0001,t); g.gain.exponentialRampToValueAtTime(vol,t+.02); g.gain.exponentialRampToValueAtTime(.0001,t+d);
+  o.connect(g); g.connect(AU.master); o.start(t); o.stop(t+d+.05); }
+/* spatial placement: pan by x-offset, attenuate by distance from player 1 */
+function spatial(vol,x,y){ const c=AU.ctx; if(!c)return null;
+  const out=c.createGain(); let node=out;
+  if(x!==undefined&&G&&G.players&&G.players[0]){ const p=G.players[0];
+    const dx=x-p.x, dy=(y||0)-p.y, d=Math.hypot(dx,dy);
+    const att=clamp(1-d/760,.08,1);
+    out.gain.value=vol*att*att;
+    if(c.createStereoPanner){ const sp=c.createStereoPanner(); sp.pan.value=clamp(dx/420,-1,1);
+      out.connect(sp); node=sp; }
+  } else out.gain.value=vol;
+  node.connect(AU.master);
+  if(AU.verb){ const s=c.createGain(); s.gain.value=.3; node.connect(s); s.connect(AU.verb); }
+  return out; }
+function noiseBurst(dur,vol,fq,type,pan){ const c=AU.ctx; if(!c)return;
+  const n=Math.floor(c.sampleRate*dur), b=c.createBuffer(1,n,c.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<n;i++)d[i]=(Math.random()*2-1)*(1-i/n);
+  const src=c.createBufferSource(); src.buffer=b;
+  const f=c.createBiquadFilter(); f.type=type||"bandpass"; f.frequency.value=fq||1200; f.Q.value=.9;
+  const g=c.createGain(); g.gain.value=vol;
+  src.connect(f); f.connect(g);
+  let node=g; if(pan!==undefined&&c.createStereoPanner){ const sp=c.createStereoPanner(); sp.pan.value=pan; g.connect(sp); node=sp; }
+  node.connect(AU.master); if(AU.verb){ const s=c.createGain(); s.gain.value=.28; node.connect(s); s.connect(AU.verb); }
+  src.start(); }
+/* ---- main sfx dispatcher: sfx(name[, x, y]) ---- */
+function sfx(n,x,y){ if(!AU.sfxOn)return; if(!actx())return;
+  const S=(v)=>spatial(v,x,y); switch(n){
+  case "chop":{ const d=S(.16); tone(170,.09,"square",.16,80,d); noiseBurst(.07,.10,900,"bandpass"); break; }
+  case "fell":{ const d=S(.18); tone(120,.25,"sawtooth",.18,45,d); setTimeout(()=>tone(70,.3,"triangle",.16,40,d),110);
+    setTimeout(()=>noiseBurst(.35,.22,260,"lowpass"),120); break; }
+  case "plant":{ const d=S(.12); tone(520,.07,"sine",.12,null,d); setTimeout(()=>tone(680,.1,"sine",.09,null,d),60); break; }
+  case "water":{ const d=S(.1); noiseBurst(.3,.14,1600,"bandpass"); tone(300,.18,"sine",.1,620,d); break; }
+  case "harvest":{ const d=S(.13); tone(620,.07,"triangle",.13,null,d); setTimeout(()=>tone(880,.1,"triangle",.11,null,d),70); break; }
+  case "coin":{ const d=S(.1); tone(880,.07,"square",.1,null,d); setTimeout(()=>tone(1320,.12,"square",.09,null,d),70);
+    setTimeout(()=>tone(1760,.14,"square",.07,null,d),150); break; }
+  case "eat": tone(220,.06,"square",.1); setTimeout(()=>tone(180,.08,"square",.09),90); break;
+  case "build":{ const d=S(.17); tone(110,.12,"square",.17,null,d); setTimeout(()=>tone(150,.1,"square",.12,null,d),80);
+    setTimeout(()=>noiseBurst(.12,.14,400,"lowpass"),60); break; }
+  case "break":{ const d=S(.13); tone(200,.1,"sawtooth",.13,90,d); noiseBurst(.16,.16,700,"bandpass"); break; }
+  case "pop": tone(760,.05,"sine",.1); break;
+  case "egg":{ const d=S(.09); tone(700,.05,"sine",.09,null,d); setTimeout(()=>tone(980,.07,"sine",.08,null,d),55); break; }
+  case "hatch":{ const d=S(.12); [740,880,1040,1320].forEach((f,i)=>setTimeout(()=>tone(f,.09,"triangle",.11,null,d),i*70));
+    setTimeout(()=>noiseBurst(.2,.1,2400,"bandpass"),40); break; }
+  case "feed":{ const d=S(.11); tone(440,.08,"triangle",.11,null,d); setTimeout(()=>tone(590,.1,"triangle",.1,null,d),80); break; }
+  case "moo":{ const d=S(.22); tone(190,.5,"sawtooth",.2,120,d); setTimeout(()=>tone(150,.42,"sawtooth",.16,100,d),180);
+    noiseBurst(.3,.07,300,"lowpass"); break; }
+  case "cluck":{ const d=S(.1); tone(900,.05,"square",.07,600,d); setTimeout(()=>tone(760,.06,"square",.06,520,d),70); break; }
+  case "buy":{ const d=S(.12); [523,659,784].forEach((f,i)=>setTimeout(()=>tone(f,.12,"triangle",.11,null,d),i*70)); break; }
+  case "sell":{ const d=S(.12); [784,659,523].forEach((f,i)=>setTimeout(()=>tone(f,.11,"triangle",.11,null,d),i*70));
+    setTimeout(()=>tone(1320,.16,"square",.08,null,d),220); break; }
+  case "error": tone(200,.14,"square",.1,140); break;
+  case "horn":{ const d=S(.3); tone(330,.3,"sawtooth",.2,300,d); setTimeout(()=>tone(440,.24,"sawtooth",.16,420,d),60); break; }
+  case "engine": engineRev(.5); break;
+  case "pickup": tone(1040,.05,"sine",.09); break;
+  case "sleep":  [523,659,784,1047].forEach((f,i)=>setTimeout(()=>tone(f,.16,"sine",.1),i*130)); break;
+  case "day":    [659,784,988].forEach((f,i)=>setTimeout(()=>tone(f,.2,"sine",.11),i*140)); break;
+  case "night":  [784,659,523,392].forEach((f,i)=>setTimeout(()=>tone(f,.22,"sine",.09),i*150)); break;
+  case "hurt":   tone(200,.2,"sawtooth",.13,90); break;
+  case "ui":     tone(600,.05,"square",.07); break;
+  case "join":   [523,659,880].forEach((f,i)=>setTimeout(()=>tone(f,.12,"triangle",.1),i*90)); break;
+  case "thunder": tone(70,.9,"sawtooth",.22,32); noiseBurst(.9,.2,180,"lowpass"); break;
+  case "splash": noiseBurst(.4,.2,900,"bandpass"); tone(420,.2,"sine",.08,180); break;
+} }
+/* ---- continuous car engine (3D) ---- */
+function engineRev(dur){ if(!actx())return; const c=AU.ctx, t=c.currentTime;
+  const o=c.createOscillator(); o.type="sawtooth"; o.frequency.setValueAtTime(70,t);
+  o.frequency.exponentialRampToValueAtTime(160,t+dur*.6);
+  o.frequency.exponentialRampToValueAtTime(90,t+dur);
+  const f=c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=900;
+  const g=c.createGain(); g.gain.setValueAtTime(.0001,t);
+  g.gain.exponentialRampToValueAtTime(.16,t+.05); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(f); f.connect(g); g.connect(AU.master);
+  if(AU.verb){ const s=c.createGain(); s.gain.value=.2; g.connect(s); s.connect(AU.verb); }
+  o.start(t); o.stop(t+dur+.05); }
+function engineLoop(on){ if(!actx())return; const c=AU.ctx;
+  if(on){ if(AU.eng)return;
+    const o=c.createOscillator(); o.type="sawtooth"; o.frequency.value=55;
+    const o2=c.createOscillator(); o2.type="square"; o2.frequency.value=27;
+    const f=c.createBiquadFilter(); f.type="lowpass"; f.frequency.value=420; f.Q.value=3;
+    const g=c.createGain(); g.gain.value=0;
+    o.connect(f); o2.connect(f); f.connect(g); g.connect(AU.master);
+    o.start(); o2.start(); AU.eng={o,o2,f,g};
+    g.gain.setTargetAtTime(.10,c.currentTime,.3);
+  } else if(AU.eng){ const e=AU.eng; AU.eng=null;
+    e.g.gain.setTargetAtTime(0,c.currentTime,.2);
+    setTimeout(()=>{try{e.o.stop();e.o2.stop()}catch(err){}},600); } }
+function engineSet(speed){ if(!AU.eng)return; const c=AU.ctx, t=c.currentTime;
+  AU.eng.o.frequency.setTargetAtTime(50+speed*90,t,.15);
+  AU.eng.o2.frequency.setTargetAtTime(25+speed*45,t,.15);
+  AU.eng.f.frequency.setTargetAtTime(320+speed*900,t,.15);
+  AU.eng.g.gain.setTargetAtTime(.05+Math.min(speed,1)*.09,t,.2); }
+/* ---- ambience bed (day birds / night crickets / wind) ---- */
+function ambTick(dt){ if(!AU.sfxOn||!actx()||mode!=="play"||!G)return;
+  if(AU.airG){ const want=isNight()?.012:.02; AU.airG.gain.setTargetAtTime(want,AU.ctx.currentTime,.8); }
+  AU.ambT-=dt; if(AU.ambT>0)return;
+  AU.ambT=1.6+Math.random()*3.4;
+  if(isNight()){ // crickets
+    for(let i=0;i<3;i++) setTimeout(()=>{ if(AU.sfxOn&&mode==="play")tone(4300+Math.random()*700,.035,"sine",.028,null); },i*70);
+    if(Math.random()<.16) tone(2400,.05,"sine",.02,2100);
+    if(Math.random()<.08) noiseBurst(1.6,.03,300,"lowpass",Math.random()*2-1); // wind
+  } else { // birds
+    const p=Math.random()*2-1;
+    if(Math.random()<.72){ const base=2200+Math.random()*1600;
+      for(let i=0;i<2+Math.floor(Math.random()*3);i++)
+        setTimeout(()=>{ if(AU.sfxOn&&mode==="play"&&!isNight())tone(base+Math.random()*500,.06,"sine",.045,null); },i*95);
+    } else noiseBurst(1.2,.022,600,"lowpass",p); // breeze
+    if(Math.random()<.1) setTimeout(()=>{ if(AU.sfxOn&&mode==="play"&&!isNight())noiseBurst(.5,.05,3000,"bandpass",p); },300);
+  } }
+const MEL=[523,0,587,659,0,784,659,0,523,0,587,659,0,523,440,0];
+function musTick(){ if(!MUS.on||!actx())return; const c=AU.ctx; const t=c.currentTime+.06;
+  const n=MEL[MUS.step%MEL.length]; if(n)toneAt(c,t,n,.34,"triangle",.05);
+  if(MUS.step%4===0)toneAt(c,t,131,.5,"sine",.07); MUS.step++; }
+function setMusic(on){ MUS.on=on; if(on){ actx(); if(!MUS.timer){musTick(); MUS.timer=setInterval(musTick,320);} } else { clearInterval(MUS.timer); MUS.timer=null; }
+  audioLabels(); }
+function setSfx(on){ AU.sfxOn=on; audioLabels(); if(on)sfx("ui"); }
+
+/* ============================ SIZING ============================ */
+function resize(){ dpr=Math.min(2,window.devicePixelRatio||1); W=window.innerWidth; H=window.innerHeight;
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); cv.style.width=W+"px"; cv.style.height=H+"px";
+  TS=clamp(Math.round(W/(W>H?26:14)),24,64);
+  lightCv=document.createElement("canvas"); lightCv.width=cv.width; lightCv.height=cv.height; lc=lightCv.getContext("2d"); }
+window.addEventListener("resize",resize);
+
+/* ============================ WORLD ============================ */
+function stageOf(c){ return c.g>=45?3:Math.floor(c.g/11.25); }
+function isNight(){ const h=(6+G.time*24)%24; return h>=19||h<6; }
+function hourStr(){ const h=(6+G.time*24)%24; const hh=Math.floor(h), mm=Math.floor((h-hh)*60);
+  return String(hh).padStart(2,"0")+":"+String(mm).padStart(2,"0"); }
+function tileOf(x,y){ return Math.floor(x/TILE)+","+Math.floor(y/TILE); }
+function solid(tx,ty){ if(tx<0||ty<0||tx>=MAP||ty>=MAP)return true; const k=tileKey(tx,ty);
+  if(G.water.has(k)||G.occ.has(k))return true; const tr=G.trees.get(k); return !!(tr&&!tr.stump); }
+function passable(x,y){ const r=9;
+  return !solid(Math.floor((x-r)/TILE),Math.floor((y-r)/TILE))&&!solid(Math.floor((x+r)/TILE),Math.floor((y-r)/TILE)) &&
+         !solid(Math.floor((x-r)/TILE),Math.floor((y+r)/TILE))&&!solid(Math.floor((x+r)/TILE),Math.floor((y+r)/TILE)); }
+function moveP(p,dx,dy){ if(passable(p.x+dx,p.y))p.x+=dx; if(passable(p.x,p.y+dy))p.y+=dy; }
+function carFree(x,y){ const r=13;
+  return !solid(Math.floor((x-r)/TILE),Math.floor((y-r)/TILE))&&
+         !solid(Math.floor((x+r)/TILE),Math.floor((y-r)/TILE))&&
+         !solid(Math.floor((x-r)/TILE),Math.floor((y+r)/TILE))&&
+         !solid(Math.floor((x+r)/TILE),Math.floor((y+r)/TILE)); }
+function bldgAt(tx,ty){ for(const b of G.bldgs) if(tx>=b.x&&tx<b.x+b.w&&ty>=b.y&&ty<b.y+b.h) return b; return null; }
+function frontTile(p){ return [Math.floor((p.x+p.dx*26)/TILE), Math.floor((p.y+p.dy*26)/TILE)]; }
+function rebuildOcc(){ G.occ.clear(); for(const b of G.bldgs) for(let y=b.y;y<b.y+b.h;y++) for(let x=b.x;x<b.x+b.w;x++) G.occ.add(tileKey(x,y)); }
+function newGame(){
+  const rng=mulberry32(20261108);
+  G={day:1,time:0,money:20,inv:{seed:5,crop:0,egg:0,wood:6,berry:2,milk:0,fuel:0},hp:100,hunger:100,
+     soil:new Set(),crops:new Map(),trees:new Map(),bushes:new Map(),bldgs:[],occ:new Set(),water:new Set(),
+     pickups:[],chickens:[],cows:[],car:{x:6.5*TILE,y:20.5*TILE,a:.2,v:0,on:false,ft:0},parts:[],floats:[],roads:new Set(),land:new Set(),
+     players:[{x:5.5*TILE,y:7.5*TILE,dx:0,dy:1,sw:0,cd:0,pal:0}]};
+  // water pond
+  for(let y=0;y<MAP;y++)for(let x=0;x<MAP;x++){ const d=Math.hypot(x-8.5,y-28.5); if(d<3.4)G.water.add(tileKey(x,y)); }
+  // fixed buildings
+  G.bldgs.push({t:"house",x:4,y:3,w:4,h:3},{t:"store",x:31,y:3,w:5,h:4},{t:"coop",x:26,y:27,w:2,h:2},
+    {t:"market",x:14,y:4,w:5,h:4},{t:"shop",x:20,y:4,w:4,h:4},{t:"fuel",x:24,y:4,w:4,h:4},{t:"land",x:28,y:4,w:3,h:4},
+    {t:"barn",x:14,y:27,w:4,h:3});
+  G.roads=buildRoads();
+  // trees: forest border
+  for(let y=0;y<MAP;y++)for(let x=0;x<MAP;x++){
+    const edge=x<3||x>MAP-4||y<3||y>MAP-4, k=tileKey(x,y);
+    if(!edge||G.water.has(k)||G.roads.has(k))continue;
+    if(rng()<0.62)G.trees.set(k,{hp:3,stump:false});
+  }
+  // inner trees (avoid field / buildings / pond)
+  const free=(x,y)=>{ const k=tileKey(x,y);
+    if(G.water.has(k)||G.trees.has(k)||bldgAt(x,y)||G.roads.has(k)||inPlot(x,y))return false;
+    if(x>=13&&x<=27&&y>=13&&y<=25)return false;
+    if(x<=9&&y>=25)return false; return true; };
+  let placed=0,guard=0;
+  while(placed<16&&guard++<400){ const x=3+Math.floor(rng()*(MAP-6)), y=3+Math.floor(rng()*(MAP-6));
+    if(free(x,y)){ G.trees.set(tileKey(x,y),{hp:3,stump:false}); placed++; } }
+  // berry bushes
+  let b=0; guard=0;
+  while(b<8&&guard++<300){ const x=4+Math.floor(rng()*(MAP-8)), y=9+Math.floor(rng()*(MAP-12));
+    if(free(x,y)&&!G.bushes.has(tileKey(x,y))){ G.bushes.set(tileKey(x,y),{ready:true}); b++; } }
+  // chickens near coop
+  for(let i=0;i<3;i++)G.chickens.push({x:(26.5+i*.8)*TILE,y:31*TILE,tx:27*TILE,ty:31*TILE,idle:i*.5,eggt:45+i*8,face:1});
+  spawnCows();
+  rebuildOcc();
+}
+/* cows graze in the barn yard (x13-22, y26-33) */
+function spawnCows(){ G.cows=[];
+  for(let i=0;i<3;i++){ const x=(14+i*2.5)*TILE, y=31.5*TILE;
+    G.cows.push({x,y,tx:x,ty:y,idle:i*.7,face:1,milked:false}); } }
+/* ======================= WORLD: ROADS / PLOTS / PRICES ======================= */
+function buildRoads(){ const r=new Set();
+  for(let x=3;x<=36;x++){ r.add(tileKey(x,10)); r.add(tileKey(x,11)); }      // main street
+  for(let y=8;y<=36;y++){ r.add(tileKey(29,y)); r.add(tileKey(30,y)); }      // east avenue
+  for(let y=3;y<=10;y++){ r.add(tileKey(11,y)); r.add(tileKey(12,y)); }      // west lane
+  return r; }
+function inPlot(x,y){ for(const p of PLOTS) if(x>=p.x&&x<p.x+p.w&&y>=p.y&&y<p.y+p.h)return true; return false; }
+function onOwnedLand(x,y){ for(const id of G.land){ const p=PLOTS.find(q=>q.id===id);
+  if(p&&x>=p.x&&x<p.x+p.w&&y>=p.y&&y<p.y+p.h)return true; } return false; }
+/* where the player may build for free: farm + homestead + coop yard, else owned land */
+function buildZone(x,y){
+  if(x>=13&&x<=27&&y>=13&&y<=25)return true;
+  if(x>=3&&x<=12&&y>=7&&y<=12)return true;
+  if(x>=24&&x<=30&&y>=25&&y<=32)return true;
+  return onOwnedLand(x,y); }
+/* smart dynamic market price: deterministic per (day, salt) -> 0.85..1.18 */
+function dayRate(day,salt){ let h=(day*2654435761+salt*40503)>>>0; h^=h>>>15; h=(h*2246822519)>>>0; h^=h>>>13;
+  return .85+(h%34)/100; }
+function priceOf(base,salt){ return Math.max(1,Math.round(base*dayRate(G.day,salt))); }
+/* ============================ SAVE / LOAD ============================ */
+function save(){ if(!G)return; try{ localStorage.setItem(SAVEKEY,JSON.stringify({
+  v:1,ts:Date.now(),day:G.day,time:G.time,money:G.money,inv:G.inv,hp:G.hp,hunger:G.hunger,
+  soil:[...G.soil],crops:[...G.crops],trees:[...G.trees],bushes:[...G.bushes],
+  bldgs:G.bldgs,pickups:G.pickups,land:[...G.land],
+  chickens:G.chickens.map(c=>({x:c.x,y:c.y,eggt:c.eggt})),
+  cows:G.cows.map(c=>({x:c.x,y:c.y})),
+  car:G.car?{x:G.car.x,y:G.car.y,a:G.car.a,v:0,on:false,ft:0}:null,
+  players:G.players.map(p=>({x:p.x,y:p.y,dx:p.dx,dy:p.dy,pal:p.pal}))})); }catch(e){} }
+function hasSave(){ try{return !!localStorage.getItem(SAVEKEY)}catch(e){return false} }
+function load(){ try{ const d=JSON.parse(localStorage.getItem(SAVEKEY)); if(!d||d.v!==1)return false;
+  if(!G)newGame(); /* fresh page load: G is null, must exist before restoring fields */
+  G.day=d.day;G.time=d.time;G.money=d.money;
+  G.inv=Object.assign({seed:0,crop:0,egg:0,wood:0,berry:0,milk:0,fuel:0},d.inv);G.hp=d.hp;G.hunger=d.hunger;
+  G.soil=new Set(d.soil);G.crops=new Map(d.crops);G.trees=new Map(d.trees);G.bushes=new Map(d.bushes);
+  G.bldgs=d.bldgs;G.pickups=d.pickups||[];G.parts=[];G.floats=[];
+  G.land=new Set(d.land||[]);G.roads=buildRoads();
+  /* migration: older saves predate the city district */
+  const need=[["market",14,4,5,4],["shop",20,4,4,4],["fuel",24,4,4,4],["land",28,4,3,4],["barn",14,27,4,3]];
+  for(const nm of need) if(!G.bldgs.some(b=>b.t===nm[0]))G.bldgs.push({t:nm[0],x:nm[1],y:nm[2],w:nm[3],h:nm[4]});
+  G.chickens=(d.chickens||[]).map(c=>Object.assign({tx:c.x,ty:c.y,idle:0,face:1},c));
+  G.cows=(d.cows&&d.cows.length?d.cows:[{x:14*TILE,y:31.5*TILE},{x:19*TILE,y:31.5*TILE},{x:16.5*TILE,y:33*TILE}])
+    .map(c=>Object.assign({tx:c.x,ty:c.y,idle:0,face:1},c));
+  G.car=Object.assign({x:6.5*TILE,y:20.5*TILE,a:.2,v:0,on:false,ft:0},d.car||{});
+  G.car.on=false; G.car.v=0;
+  G.players=(d.players&&d.players.length?d.players:[{x:5.5*TILE,y:7.5*TILE,dx:0,dy:1,pal:0}]).map(p=>Object.assign({dx:0,dy:1,sw:0,cd:0},p));
+  rebuildOcc();
+  const away=d.ts?(Date.now()-d.ts)/1000:0;
+  if(away>5){ const got=advanceClock(away,true);
+    if(got>=1)toast(tp("tAway",{h:Math.floor(got)})); save(); }
+  return true; }catch(e){ return false; } }
+
+/* ============================ INPUT ============================ */
+const MOVE_KEYS=["ArrowUp","ArrowDown","ArrowLeft","ArrowRight","Space"];
+window.addEventListener("keydown",e=>{ if(MOVE_KEYS.includes(e.code)&&mode==="play")e.preventDefault();
+  if(e.repeat)return; keys[e.code]=true;
+  if(mode==="play"){
+    if(e.code==="KeyF"||e.code==="KeyE"||e.code==="Space")queued[0]=true;
+    if(e.code==="KeyH"&&G&&G.car&&G.car.on)sfx("horn");
+    else if(e.code==="Period"&&p2on)queued[1]=true;
+    else if(e.code==="KeyG")openBuild();
+    else if(e.code==="KeyP")toggleP2();
+    else if(e.code==="Escape")pauseGame();
+  } else if(e.code==="Escape"&&(mode==="pause"))resumeGame();
+  else if(e.code==="Escape"&&(mode==="store"||mode==="city"||mode==="buildmenu"||mode==="about")){ if(mode==="about"&&lastMode==="title"){mode="title";showOv("ovTitle");} else resumeGame(); }
+});
+window.addEventListener("keyup",e=>{keys[e.code]=false});
+window.addEventListener("blur",()=>{for(const k in keys)keys[k]=false});
+const sz=$("stickZone"), sbase=$("stickBase");
+function moveJoy(e){ let dx=e.clientX-joy.bx, dy=e.clientY-joy.by; const d=Math.hypot(dx,dy), R=52;
+  if(d>R){dx=dx/d*R; dy=dy/d*R;} $("stickKnob").style.transform="translate("+dx+"px,"+dy+"px)";
+  joy.dx=dx/R; joy.dy=dy/R; }
+sz.addEventListener("pointerdown",e=>{ if(mode!=="play")return; joy.active=true; joy.id=e.pointerId; joy.bx=e.clientX; joy.by=e.clientY;
+  sbase.style.display="block"; sbase.style.left=(e.clientX-55)+"px"; sbase.style.top=(e.clientY-55)+"px"; moveJoy(e);
+  try{sz.setPointerCapture(e.pointerId)}catch(err){} e.preventDefault(); });
+sz.addEventListener("pointermove",e=>{ if(joy.active&&e.pointerId===joy.id)moveJoy(e); });
+function endJoy(e){ if(e.pointerId!==joy.id)return; joy.active=false; joy.dx=joy.dy=0; sbase.style.display="none"; }
+sz.addEventListener("pointerup",endJoy); sz.addEventListener("pointercancel",endJoy);
+$("btnAct").addEventListener("pointerdown",e=>{ e.preventDefault(); if(mode==="play")queued[0]=true; });
+$("btnBuild").addEventListener("pointerdown",e=>{ e.preventDefault(); if(mode==="play")openBuild(); });
+
+/* ============================ ACTIONS ============================ */
+const HINTS={build:b=>tp("hBuild",{n:t(BUILD[b].nk),c:BUILD[b].cost}),
+  store:()=>t("hStore"), sleep:()=>t("hSleep"), house:()=>t("hHouse"),
+  breakfence:()=>t("hBreakFence"), coopinfo:()=>t("hCoop"),
+  berry:()=>t("hBerry"), harvest:()=>t("hHarvest"), water:()=>t("hWater"),
+  chop:()=>t("hChop"), feed:()=>t("hFeed"), pet:()=>t("hPet"),
+  plant:()=>t("hPlant"), till:()=>t("hTill"),
+  cow:()=>t("hCow"),
+  car:()=>t("hCar"), exitcar:()=>t("hCarExit"),
+  market:()=>t("hMarket"), shop:()=>t("hShop"), fuel:()=>t("hFuel"),
+  land:()=>t("hLand"), barn:()=>t("hBarn")};
+function contextFor(p){
+  if(buildSel)return "build";
+  if(G.car&&G.car.on)return "exitcar";
+  const fx=p.x+p.dx*30, fy=p.y+p.dy*30;
+  if(G.car&&Math.hypot(G.car.x-fx,G.car.y-fy)<44)return "car";
+  const ft=frontTile(p), tx=ft[0], ty=ft[1], k=tileKey(tx,ty);
+  const b=bldgAt(tx,ty);
+  if(b){ if(b.t==="store")return "store";
+    if(b.t==="market")return "market"; if(b.t==="shop")return "shop";
+    if(b.t==="fuel")return "fuel"; if(b.t==="land")return "land"; if(b.t==="barn")return "barn";
+    if(b.t==="house"||b.t==="cottage")return isNight()?"sleep":"house";
+    if(b.t==="fence")return "breakfence"; if(b.t==="coop")return "coopinfo"; }
+  if(G.water.has(k))return null;
+  const bush=G.bushes.get(k); if(bush&&bush.ready)return "berry";
+  const cr=G.crops.get(k); if(cr)return stageOf(cr)>=3?"harvest":(cr.w?null:"water");
+  const tr=G.trees.get(k); if(tr&&!tr.stump)return "chop";
+  for(const c of G.chickens) if(Math.hypot(c.x-fx,c.y-fy)<34)return G.inv.crop>0?"feed":"pet";
+  for(const c of G.cows) if(Math.hypot(c.x-fx,c.y-fy)<42)return "cow";
+  if(G.soil.has(k))return G.inv.seed>0?"plant":null;
+  if(!G.occ.has(k))return "till";
+  return null; }
+function burst(x,y,color,n){ for(let i=0;i<n;i++){ const a=Math.random()*Math.PI*2, s=30+Math.random()*70;
+  G.parts.push({x,y,vx:Math.cos(a)*s,vy:Math.sin(a)*s-30,life:.6+Math.random()*.3,max:.9,c:color,s:2+Math.random()*3}); } }
+function floatAt(tx,ty,txt){ G.floats.push({x:tx*TILE+16,y:ty*TILE+10,txt,life:1.1}); }
+function addPickup(t,x,y){ G.pickups.push({t,x,y}); }
+function nearestChicken(p){ let best=null,bd=1e9; for(const c of G.chickens){ const d=Math.hypot(c.x-p.x,c.y-p.y); if(d<bd){bd=d;best=c;} } return best; }
+function tryPlace(p){ const def=BUILD[buildSel], ft=frontTile(p), tx=ft[0], ty=ft[1], k=tileKey(tx,ty);
+  if(tx<1||ty<1||tx>=MAP-1||ty>=MAP-1){toast(t("tBounds"));return;}
+  const tr=G.trees.get(k);
+  if(G.occ.has(k)||G.water.has(k)||G.roads.has(k)||(tr&&!tr.stump)||G.soil.has(k)||G.crops.has(k)||G.bushes.has(k)){toast(t("tBusy"));return;}
+  if(!buildZone(tx,ty)){toast(t("tNeedLand"));return;}
+  if(G.inv.wood<def.cost){toast(tp("tNeedWood",{c:def.cost}));return;}
+  G.inv.wood-=def.cost; G.bldgs.push({t:buildSel,x:tx,y:ty,w:1,h:1}); G.occ.add(k);
+  sfx("build"); burst(tx*TILE+16,ty*TILE+16,"#f2c14e",8); toast(def.emoji+" "+tp("tBuilt",{n:t(def.nk)})); }
+function doAction(p){
+  const what=contextFor(p); if(!what)return;
+  p.cd=.35; p.sw=.35;
+  const ft=frontTile(p), tx=ft[0], ty=ft[1], k=tileKey(tx,ty);
+  switch(what){
+    case "chop":{ const tr=G.trees.get(k); if(!tr)break; tr.hp--; sfx("chop"); burst(p.x+p.dx*26,p.y+p.dy*26,"#c98a4b",6);
+      if(tr.hp<=0){ tr.stump=true; sfx("fell"); for(let i=0;i<3;i++)addPickup("wood",tx*TILE+16+(Math.random()*22-11),ty*TILE+16+(Math.random()*22-11));
+        toast(t("tFell")); } break; }
+    case "breakfence":{ const i=G.bldgs.findIndex(b=>b.t==="fence"&&b.x===tx&&b.y===ty);
+      if(i>=0){G.bldgs.splice(i,1); G.occ.delete(k); G.inv.wood++; sfx("break"); toast(t("tFenceOut"));} break; }
+    case "till": if(G.roads.has(k))break; G.soil.add(k); sfx("plant"); burst(tx*TILE+16,ty*TILE+16,"#8a5a33",5); break;
+    case "plant": if(G.inv.seed>0){ G.inv.seed--; G.crops.set(k,{g:0,w:false}); sfx("plant"); } break;
+    case "water":{ const c=G.crops.get(k); if(c&&!c.w){ c.w=true; sfx("water"); burst(tx*TILE+16,ty*TILE+16,"#5ab0ff",6); } break; }
+    case "harvest":{ const c=G.crops.get(k); if(c&&stageOf(c)>=3){ G.crops.delete(k);
+      const n=1+(Math.random()<.35?1:0); G.inv.crop+=n; if(Math.random()<.4){G.inv.seed++; toast(t("tSeedBonus"));}
+      sfx("harvest"); floatAt(tx,ty,"+"+n+"🥕"); } break; }
+    case "berry":{ const b=G.bushes.get(k); if(b&&b.ready){ b.ready=false; G.inv.berry+=2; sfx("harvest"); floatAt(tx,ty,"+2🍓"); } break; }
+    case "feed": if(G.inv.crop>0){ G.inv.crop--; const c=nearestChicken(p); if(c)c.eggt=Math.min(c.eggt,10);
+      sfx("feed"); toast(t("tHenHappy")); } break;
+    case "pet": sfx("pop"); toast(t("tHenPet")); break;
+    case "cow":{ const c=G.cows.find(q=>Math.hypot(q.x-(p.x+p.dx*30),q.y-(p.y+p.dy*30))<46);
+      sfx("moo",c?c.x:p.x,c?c.y:p.y); toast(t("tCow")); break; }
+    case "car":{ G.car.on=true; G.car.v=0; G.car.ft=0; engineRev(.6); engineLoop(true);
+      toast(G.inv.fuel>0?t("tCarIn"):t("tNoFuel")); break; }
+    case "exitcar":{ const c=G.car, p0=G.players[0]; c.on=false; c.v=0; engineLoop(false);
+      let ex=c.x, ey=c.y;
+      for(const off of [1.5708,-1.5708,Math.PI,0]){
+        const tx=c.x+Math.cos(c.a+off)*30, ty=c.y+Math.sin(c.a+off)*30;
+        if(carFree(tx,ty)){ ex=tx; ey=ty; break; } }
+      p0.x=ex; p0.y=ey; toast(t("tCarOut")); break; }
+    case "store": openStore(); break;
+    case "sleep": newDay(true); G.time=0; sfx("sleep"); toast(tp("tSlept",{d:G.day})); break;
+    case "house": toast(t("tHouse")); break;
+    case "coopinfo": toast(t("tCoopInfo")); break;
+    case "market": openCity("market"); break;
+    case "shop": openCity("shop"); break;
+    case "fuel": openCity("fuel"); break;
+    case "land": openCity("land"); break;
+    case "barn": toast(t("tBarn")); break;
+    case "build": tryPlace(p); break; } }
+function eat(kind){ if(mode!=="play")return; const need=kind==="crop"?25:15;
+  if(G.inv[kind]<=0){toast(tp("tNoItem",{n:t(kind==="crop"?"nCrop":"nBerry")}));return;}
+  if(G.hunger>=99){toast(t("tNotHungry"));return;}
+  G.inv[kind]--; G.hunger=Math.min(100,G.hunger+need); G.hp=Math.min(100,G.hp+3);
+  sfx("eat"); toast((kind==="crop"?"🥕":"🍓")+" "+t(kind==="crop"?"tFreshCrop":"tFreshBerry")); }
+function die(){ G.hp=50; G.hunger=70; G.money=Math.floor(G.money*.8);
+  const h=G.bldgs.find(b=>b.t==="house")||{x:4,y:6,w:1,h:1};
+  G.players[0].x=(h.x+1.5)*TILE; G.players[0].y=(h.y+h.h+.5)*TILE;
+  sfx("hurt"); toast(t("tWoke")); save(); }
+function newDay(silent){ G.day++;
+  for(const [k,tr] of G.trees) if(tr.stump&&Math.random()<.4)G.trees.set(k,{hp:3,stump:false});
+  for(const b of G.bushes.values())b.ready=true;
+  for(const c of G.chickens)c.eggt=45;
+  if(!silent){ sfx("day"); toast(tp("tNewDay",{d:G.day})); }
+  save(); }
+function toggleP2(){ if(mode!=="play")return;
+  if(p2on){ p2on=false; G.players.length=1; toast(t("tP2Out")); }
+  else { const p1=G.players[0]; G.players.push({x:p1.x+26,y:p1.y,dx:0,dy:1,sw:0,cd:0,pal:1}); p2on=true;
+    sfx("join"); toast(t("tP2In")); } }
+
+/* ============================ STORE / BUILD UI ============================ */
+function openStore(){ mode="store"; queued[0]=queued[1]=false; sfx("ui"); renderStore(); showOv("ovStore"); }
+function renderStore(){
+  $("stMoney").textContent=G.money;
+  const sl=$("sellList"); sl.innerHTML="";
+  for(const k of ["crop","egg","wood","berry"]){ const n=G.inv[k];
+    const row=document.createElement("div"); row.className="item";
+    row.innerHTML="<span>"+ICON[k]+" "+({crop:t("nCrop"),egg:t("nEgg"),wood:t("nWood"),berry:t("nBerry")})[k]+" × "+n+"</span>";
+    const right=document.createElement("span"); right.style.display="flex"; right.style.gap="8px"; right.style.alignItems="center";
+    const pr=document.createElement("span"); pr.className="pr"; pr.textContent=PRICE[k]+"$";
+    const btn=document.createElement("button"); btn.className="sbtn"; btn.textContent=t("bSell"); btn.disabled=!n;
+    btn.onclick=()=>{ G.inv[k]=0; G.money+=n*PRICE[k]; sfx("coin"); renderStore(); };
+    right.appendChild(pr); right.appendChild(btn); row.appendChild(right); sl.appendChild(row); }
+  const bl=$("buyList"); bl.innerHTML="";
+  const items=[["seed",t("bSeed"),BUY.seed],["seed5",t("bSeed5"),BUY.seed5],["chicken",t("bChicken"),BUY.chicken]];
+  for(const [id,label,cost] of items){ const row=document.createElement("div"); row.className="item";
+    row.innerHTML="<span>"+label+"</span>";
+    const right=document.createElement("span"); right.style.display="flex"; right.style.gap="8px"; right.style.alignItems="center";
+    const pr=document.createElement("span"); pr.className="pr"; pr.textContent=cost+"$";
+    const btn=document.createElement("button"); btn.className="sbtn buy"; btn.textContent=t("bBuy"); btn.disabled=G.money<cost;
+    btn.onclick=()=>{ if(G.money<cost)return; G.money-=cost;
+      if(id==="seed")G.inv.seed++; else if(id==="seed5")G.inv.seed+=5;
+      else { G.chickens.push({x:27.5*TILE,y:31.5*TILE,tx:27*TILE,ty:30*TILE,idle:0,eggt:45,face:1}); toast(t("tNewHen")); }
+      sfx("coin"); renderStore(); };
+    right.appendChild(pr); right.appendChild(btn); row.appendChild(right); bl.appendChild(row); } }
+/* ============================ CITY UI (market/shop/fuel/land) ============================ */
+let cityKind="market";
+const FOODS=[["bread","🍞",6,30],["juice","🧃",4,18],["candy","🍬",3,12]];
+function openCity(kind){ mode="city"; cityKind=kind; queued[0]=queued[1]=false;
+  sfx("ui"); renderCity(); showOv("ovCity"); }
+function cityRow(label,price,btnTxt,disabled,fn){
+  const row=document.createElement("div"); row.className="item";
+  const left=document.createElement("span"); left.textContent=label; row.appendChild(left);
+  const right=document.createElement("span"); right.style.display="flex"; right.style.gap="8px"; right.style.alignItems="center";
+  const pr=document.createElement("span"); pr.className="pr"; pr.textContent=price;
+  const btn=document.createElement("button"); btn.className="sbtn buy"; btn.textContent=btnTxt;
+  btn.disabled=!!disabled; btn.onclick=fn;
+  right.appendChild(pr); right.appendChild(btn); row.appendChild(right);
+  return row; }
+function renderCity(){
+  const T={market:"marketT",shop:"shopT",fuel:"fuelT",land:"landT"}[cityKind];
+  $("cityT").textContent=t(T); $("cityMoney").textContent=G.money;
+  const L1=$("cityL1"), L2=$("cityL2"); L1.innerHTML=""; L2.innerHTML="";
+  const s1=$("cityS1"), s2=$("cityS2");
+  s1.style.display=""; s2.style.display="";
+  if(cityKind==="market"){
+    s1.textContent=t("secSell");
+    for(const k of ["crop","egg","milk","wood","berry"]){ const n=G.inv[k]||0;
+      const p=priceOf(PRICE[k],k.charCodeAt(0));
+      L1.appendChild(cityRow(ICON[k]+" "+t({crop:"nCrop",egg:"nEgg",milk:"nMilk",wood:"nWood",berry:"nBerry"}[k])+" × "+n,
+        p+"$",t("bSell"),!n,()=>{ G.inv[k]=0; G.money+=n*p; sfx("coin"); renderCity(); })); }
+    s2.textContent=t("secBuy");
+    const buys=[["seed",t("bSeed"),BUY.seed],["seed5",t("bSeed5"),BUY.seed5],["chicken",t("bChicken"),BUY.chicken],["cow",t("bCow"),BUY.cow]];
+    for(const [id,label,cost] of buys) L2.appendChild(cityRow(label,cost+"$",t("bBuy"),G.money<cost,()=>{
+      if(G.money<cost)return; G.money-=cost;
+      if(id==="seed")G.inv.seed++; else if(id==="seed5")G.inv.seed+=5;
+      else if(id==="cow"){ const x=(14+Math.random()*8)*TILE, y=(30+Math.random()*3)*TILE;
+        G.cows.push({x,y,tx:x,ty:y,idle:0,face:1}); toast(t("tNewCow")); }
+      else { G.chickens.push({x:27.5*TILE,y:31.5*TILE,tx:27*TILE,ty:30*TILE,idle:0,eggt:45,face:1}); toast(t("tNewHen")); }
+      sfx("coin"); renderCity(); }));
+  } else if(cityKind==="shop"){
+    s1.style.display="none";
+    s2.textContent=t("secBuyFood");
+    for(const [id,emo,cost,restore] of FOODS)
+      L2.appendChild(cityRow(emo+" "+t("b"+id.charAt(0).toUpperCase()+id.slice(1))+" (+"+restore+")",
+        cost+"$",t("bBuy"),G.money<cost||G.hunger>=99,()=>{
+        if(G.money<cost)return; G.money-=cost; G.hunger=Math.min(100,G.hunger+restore);
+        sfx("eat"); toast(tp("tMeal",{n:emo,h:restore})); renderCity(); }));
+  } else if(cityKind==="fuel"){
+    s1.style.display="none"; s2.textContent=t("secFuel");
+    L2.appendChild(cityRow("⛽ "+tp("fuelPack",{n:FUEL_PACK}),FUEL_PRICE+"$",t("bBuy"),G.money<FUEL_PRICE,()=>{
+      if(G.money<FUEL_PRICE)return; G.money-=FUEL_PRICE; G.inv.fuel+=FUEL_PACK;
+      sfx("buy"); toast(tp("tGotFuel",{n:FUEL_PACK})); renderCity(); }));
+    L2.appendChild(cityRow("🛢️ "+t("fuelLeft"),(G.inv.fuel||0)+"",t("bOwned"),true,()=>{}));
+  } else {
+    s1.style.display="none"; s2.textContent=t("secLand");
+    const note=document.createElement("p"); note.className="cr"; note.style.marginTop="0";
+    note.textContent="📈 "+t("landNote"); L2.appendChild(note);
+    PLOTS.forEach((pl,i)=>{ const owned=G.land.has(pl.id);
+      const price=priceOf(pl.base,i+1);
+      L2.appendChild(cityRow("🏞️ "+tp("plotN",{id:pl.id,n:pl.w*pl.h}),
+        owned?"":price+"$",owned?t("bOwned"):t("bBuy"),owned||G.money<price,()=>{
+        if(owned||G.money<price)return; G.money-=price; G.land.add(pl.id);
+        sfx("buy"); toast(tp("tPlotBought",{id:pl.id})); renderCity(); })); }); }
+}
+function closeCity(){ mode="play"; hideOv(); }
+function openBuild(){ mode="buildmenu"; queued[0]=queued[1]=false; sfx("ui"); renderBuildList(); showOv("ovBuild"); }
+function renderBuildList(){ const bl=$("buildList"); bl.innerHTML="";
+  for(const [id,d] of Object.entries(BUILD)){ const row=document.createElement("div"); row.className="item";
+    row.innerHTML="<span>"+d.emoji+" "+t(d.nk)+"</span>";
+    const right=document.createElement("span"); right.style.display="flex"; right.style.gap="8px"; right.style.alignItems="center";
+    const pr=document.createElement("span"); pr.className="pr"; pr.textContent=d.cost+"🪵";
+    const btn=document.createElement("button"); btn.className="sbtn buy"; btn.textContent=t("bSelect");
+    btn.disabled=G.inv.wood<d.cost;
+    btn.onclick=()=>{ buildSel=id; mode="play"; hideOv(); sfx("ui");
+      toast(tp("tBuildMode",{n:t(d.nk)})); };
+    right.appendChild(pr); right.appendChild(btn); row.appendChild(right); bl.appendChild(row); } }
+function closeBuildMenu(){ buildSel=null; mode="play"; hideOv(); }
+
+/* ======================= REAL-TIME CLOCK (smart rate) ======================= */
+/* game time is anchored to REAL elapsed seconds: 1 game day = DAYLEN real seconds while
+   playing; away from the game the same rate runs but is capped -> max 12 game hours
+   (hens lay, crops grow, no hunger/hp loss while you are gone). */
+function advanceClock(realSec,offline){
+  if(!(realSec>0)||!G)return 0;
+  const hrs=offline?Math.min(realSec*24/DAYLEN,12):realSec*24/DAYLEN;
+  const h0=Math.floor(G.time*24);
+  G.time+=hrs/24;
+  let days=0; while(G.time>=1){G.time-=1;days++;}
+  const h1=Math.floor(G.time*24);
+  let crossed=days===0?h1-h0:(24-h0)+h1+(days-1)*24;
+  crossed=clamp(crossed,0,24);
+  for(let d=0;d<Math.min(days,3);d++)newDay(offline);
+  for(let i=1;i<=crossed;i++)hourEvent((h0+i)%24,offline);
+  return hrs; }
+/* one game-hour tick: dawn/dusk chimes, hens lay one egg per daylight hour,
+   crops keep growing at the live rate while offline */
+function hourEvent(hh,offline){
+  const ch=(hh+6)%24; /* game index 0 = 06:00 clock */
+  if(ch===6&&!offline)sfx("day");
+  if(ch===19&&!offline)sfx("night");
+  if(ch<6||ch>=19)return;
+  let eggs=0; for(const it of G.pickups)if(it.t==="egg")eggs++;
+  if(eggs<8){ for(const c of G.chickens){ if(eggs>=8)break;
+      addPickup("egg",c.x,c.y); eggs++;
+      if(!offline){ sfx("egg",c.x,c.y); floatAt(Math.floor(c.x/TILE),Math.floor(c.y/TILE),"+1🥚"); } } }
+  let milks=0; for(const it of G.pickups)if(it.t==="milk")milks++;
+  if(milks<6){ for(const c of G.cows){ if(milks>=6)break;
+      addPickup("milk",c.x+(Math.random()*18-9),c.y+(Math.random()*14-7)); milks++;
+      if(!offline){ sfx("moo",c.x,c.y); floatAt(Math.floor(c.x/TILE),Math.floor(c.y/TILE),"+1🥛"); } } }
+  if(offline)for(const c of G.crops.values())c.g+=(DAYLEN/24)*(c.w?1.8:1);
+}
+/* ============================ UPDATE ============================ */
+function update(dt){
+  advanceClock(dt,false);
+  G.hunger=Math.max(0,G.hunger-dt*100/240);
+  if(G.hunger<=0){ G.hp-=dt*5; if(G.hp<=0)die(); } else if(G.hunger>65) G.hp=Math.min(100,G.hp+dt*2);
+  const night=isNight();
+  for(let i=0;i<G.players.length;i++){ const p=G.players[i];
+    if(i===0&&G.car&&G.car.on){ p.x=G.car.x; p.y=G.car.y; p.moving=false;
+      p.dx=(Math.cos(G.car.a)>=0)?1:-1; p.dy=0;
+      p.sw=Math.max(0,p.sw-dt); p.cd=Math.max(0,p.cd-dt);
+      if(queued[i]){ queued[i]=false; if(p.cd<=0)doAction(p); } continue; }
+    let vx=0,vy=0;
+    if(i===0){ if(keys.KeyW)vy--; if(keys.KeyS)vy++; if(keys.KeyA)vx--; if(keys.KeyD)vx++;
+      if(!p2on){ if(keys.ArrowUp)vy--; if(keys.ArrowDown)vy++; if(keys.ArrowLeft)vx--; if(keys.ArrowRight)vx++; }
+      if(joy.active){vx+=joy.dx; vy+=joy.dy;} }
+    else { if(keys.ArrowUp)vy--; if(keys.ArrowDown)vy++; if(keys.ArrowLeft)vx--; if(keys.ArrowRight)vx++; }
+    const m=Math.hypot(vx,vy);
+    if(m>.08){ if(m>1){vx/=m; vy/=m;}
+      if(Math.abs(vx)>Math.abs(vy)){p.dx=Math.sign(vx); p.dy=0;} else {p.dy=Math.sign(vy); p.dx=0;}
+      moveP(p,vx*100*dt,vy*100*dt); }
+    p.sw=Math.max(0,p.sw-dt); p.cd=Math.max(0,p.cd-dt); p.moving=m>.08;
+    if(queued[i]){ queued[i]=false; if(p.cd<=0)doAction(p); } }
+  const car=G.car;
+  if(car){
+    if(car.on){
+      const up=keys.ArrowUp||keys.KeyW, dn=keys.ArrowDown||keys.KeyS,
+            lf=keys.ArrowLeft||keys.KeyA, rt=keys.ArrowRight||keys.KeyD;
+      const gas=G.inv.fuel>0;
+      if(up&&gas)car.v+=190*dt; else if(dn)car.v-=170*dt;
+      car.v*=(1-1.0*dt); car.v=clamp(car.v,-90,200);
+      if(Math.abs(car.v)>5){ const st=(lf?-1:0)+(rt?1:0);
+        if(st)car.a+=st*2.2*dt*Math.sign(car.v); }
+      const nx=car.x+Math.cos(car.a)*car.v*dt, ny=car.y+Math.sin(car.a)*car.v*dt;
+      if(carFree(nx,ny)){ car.x=nx; car.y=ny; }
+      else { if(Math.abs(car.v)>30)sfx("error",car.x,car.y); car.v*=-.35; }
+      if(gas&&Math.abs(car.v)>8){ car.ft=(car.ft||0)+dt;
+        if(car.ft>=10){ car.ft=0; G.inv.fuel=Math.max(0,G.inv.fuel-1);
+          floatAt(Math.floor(car.x/TILE),Math.floor(car.y/TILE),"-1⛽");
+          if(G.inv.fuel===0)toast(t("tNoFuel")); } }
+      engineSet(Math.min(1,Math.abs(car.v)/200));
+    } else engineSet(0);
+  }
+  for(const c of G.chickens){ if(night)continue;
+    if(c.idle>0){ c.idle-=dt; continue; }
+    const dx=c.tx-c.x, dy=c.ty-c.y, d=Math.hypot(dx,dy);
+    if(d<5){ c.idle=.6+Math.random()*1.8; c.tx=clamp(c.x+(Math.random()*2-1)*5*TILE,4*TILE,36*TILE);
+      c.ty=clamp(c.y+(Math.random()*2-1)*4*TILE,10*TILE,38*TILE); }
+    else { const sp=34*dt, nx=c.x+dx/d*sp, ny=c.y+dy/d*sp;
+      if(!solid(Math.floor(nx/TILE),Math.floor(ny/TILE))){ c.x=nx; c.y=ny; c.face=dx<0?-1:1; }
+      else { c.tx=clamp(c.x+(Math.random()*2-1)*5*TILE,4*TILE,36*TILE); c.ty=clamp(c.y+(Math.random()*2-1)*4*TILE,10*TILE,38*TILE); } } }
+  for(const c of G.cows){ if(night)continue;
+    if(c.idle>0){ c.idle-=dt; continue; }
+    const dx=c.tx-c.x, dy=c.ty-c.y, d=Math.hypot(dx,dy);
+    if(d<6){ c.idle=1.2+Math.random()*2.6;
+      c.tx=clamp(c.x+(Math.random()*2-1)*4*TILE,13*TILE,22*TILE);
+      c.ty=clamp(c.y+(Math.random()*2-1)*3*TILE,26*TILE,33*TILE); }
+    else { const sp=24*dt, nx=c.x+dx/d*sp, ny=c.y+dy/d*sp;
+      if(!solid(Math.floor(nx/TILE),Math.floor(ny/TILE))){ c.x=nx; c.y=ny; c.face=dx<0?-1:1; }
+      else { c.tx=clamp(c.x+(Math.random()*2-1)*4*TILE,13*TILE,22*TILE);
+             c.ty=clamp(c.y+(Math.random()*2-1)*3*TILE,26*TILE,33*TILE); } } }
+  for(const c of G.crops.values()) c.g+=dt*(c.w?1.8:1);
+  const p0=G.players[0];
+  for(let i=G.pickups.length-1;i>=0;i--){ const it=G.pickups[i];
+    const dx=p0.x-it.x, dy=p0.y-it.y, d=Math.hypot(dx,dy);
+    if(d<72){ const sp=(d<28?260:120)*dt; it.x+=dx/Math.max(d,1)*sp; it.y+=dy/Math.max(d,1)*sp; }
+    if(d<16){ if(it.t==="wood"){G.inv.wood++; floatAt(Math.floor(it.x/TILE),Math.floor(it.y/TILE),"+1🪵");}
+      else if(it.t==="egg"){G.inv.egg++; floatAt(Math.floor(it.x/TILE),Math.floor(it.y/TILE),"+1🥚"); sfx("egg");}
+      else if(it.t==="milk"){G.inv.milk++; floatAt(Math.floor(it.x/TILE),Math.floor(it.y/TILE),"+1🥛"); sfx("pickup");}
+      G.pickups.splice(i,1); } }
+  for(let i=G.parts.length-1;i>=0;i--){ const q=G.parts[i]; q.life-=dt; if(q.life<=0){G.parts.splice(i,1);continue;}
+    q.x+=q.vx*dt; q.y+=q.vy*dt; q.vy+=160*dt; }
+  for(let i=G.floats.length-1;i>=0;i--){ const f=G.floats[i]; f.life-=dt; f.y-=26*dt; if(f.life<=0)G.floats.splice(i,1); }
+  saveTimer+=dt; if(saveTimer>20){ saveTimer=0; save(); } }
+/* ============================ RENDER ============================ */
+function cam(){ const p=G.players[0];
+  return {x:clamp(p.x-W/2,0,MAP*TILE-W), y:clamp(p.y-H/2,0,MAP*TILE-H)}; }
+function rr(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawPlayer(p,sx,sy){
+  const step=Math.sin(p.sw*22)*(p.sw>0?1:0);
+  ctx.save(); ctx.translate(sx,sy);
+  // shadow
+  ctx.fillStyle="rgba(0,0,0,.28)"; ctx.beginPath(); ctx.ellipse(0,12,11,5,0,0,7); ctx.fill();
+  const bob=Math.abs(Math.sin(performance.now()/140))*(p.moving?2:0);
+  // body
+  ctx.fillStyle=p.pal?"#5ec8f2":"#f2a65a"; rr(-9,-6+bob,18,20,6); ctx.fill();
+  // head
+  ctx.fillStyle="#ffd9a8"; ctx.beginPath(); ctx.arc(0,-14+bob,10,0,7); ctx.fill();
+  // hair/hat
+  ctx.fillStyle=p.pal?"#2b6cb0":"#8a5a33"; ctx.beginPath(); ctx.arc(0,-16+bob,10,Math.PI,0); ctx.fill();
+  ctx.fillRect(-10,-16+bob,20,4);
+  // eyes (face dir)
+  ctx.fillStyle="#222";
+  const ex=p.dx*3, ey=p.dy*2;
+  ctx.beginPath(); ctx.arc(-3+ex,-13+bob+ey,1.7,0,7); ctx.fill();
+  ctx.beginPath(); ctx.arc(3+ex,-13+bob+ey,1.7,0,7); ctx.fill();
+  // arm swing
+  ctx.strokeStyle=p.pal?"#3aa8d8":"#e08b3c"; ctx.lineWidth=4; ctx.lineCap="round";
+  ctx.beginPath(); ctx.moveTo(0,0+bob); ctx.lineTo(p.dx*10,2+bob+step*5+p.dy*4); ctx.stroke();
+  ctx.restore(); }
+function drawChicken(c,sx,sy){
+  ctx.save(); ctx.translate(sx,sy); ctx.scale(c.face,1);
+  ctx.fillStyle="rgba(0,0,0,.22)"; ctx.beginPath(); ctx.ellipse(0,8,9,4,0,0,7); ctx.fill();
+  const bob=Math.sin(performance.now()/110+c.x)*1.5;
+  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.ellipse(0,0+bob,10,8,0,0,7); ctx.fill();
+  ctx.fillStyle="#fff"; ctx.beginPath(); ctx.arc(7,-6+bob,5.5,0,7); ctx.fill();
+  ctx.fillStyle="#f2a65a"; ctx.beginPath(); ctx.moveTo(12,-6+bob); ctx.lineTo(17,-4+bob); ctx.lineTo(12,-2+bob); ctx.fill(); // beak
+  ctx.fillStyle="#e14b4b"; ctx.beginPath(); ctx.arc(6,-11+bob,2.5,0,7); ctx.fill(); // comb
+  ctx.fillStyle="#222"; ctx.beginPath(); ctx.arc(8.5,-7+bob,1.3,0,7); ctx.fill();
+  ctx.strokeStyle="#f2a65a"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(-3,7); ctx.lineTo(-3,11); ctx.moveTo(3,7); ctx.lineTo(3,11); ctx.stroke();
+  ctx.restore(); }
+function drawCow(c,sx,sy){
+  ctx.save(); ctx.translate(sx,sy); ctx.scale(c.face,1);
+  ctx.fillStyle="rgba(0,0,0,.24)"; ctx.beginPath(); ctx.ellipse(0,11,15,5,0,0,7); ctx.fill();
+  const bob=Math.sin(performance.now()/160+c.x)*1.2;
+  ctx.fillStyle="#f7f4ee"; rr(-15,-8+bob,26,17,7); ctx.fill();
+  ctx.fillStyle="#3b322c"; ctx.beginPath(); ctx.ellipse(-7,-1+bob,6,4.5,.4,0,7); ctx.fill();
+  ctx.beginPath(); ctx.ellipse(4,4+bob,4.5,3.5,-.3,0,7); ctx.fill();
+  ctx.fillStyle="#f7f4ee"; ctx.beginPath(); ctx.ellipse(12,-9+bob,8,7,0,0,7); ctx.fill();
+  ctx.fillStyle="#e9b6c0"; ctx.beginPath(); ctx.ellipse(17,-7+bob,4,3,0,0,7); ctx.fill();
+  ctx.fillStyle="#222"; ctx.beginPath(); ctx.arc(14,-11+bob,1.3,0,7); ctx.fill();
+  ctx.strokeStyle="#e9b6c0"; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(11,-15+bob); ctx.lineTo(8,-19+bob); ctx.stroke();
+  ctx.strokeStyle="#c9b8a4"; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(-9,8); ctx.lineTo(-9,13); ctx.moveTo(-1,8); ctx.lineTo(-1,13);
+  ctx.moveTo(6,8); ctx.lineTo(6,13); ctx.stroke();
+  ctx.restore(); }
+function drawCar(c,sx,sy){
+  ctx.save(); ctx.translate(sx,sy); ctx.rotate(c.a);
+  ctx.fillStyle="rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(0,5,21,10,0,0,7); ctx.fill();
+  ctx.fillStyle="#1b1b1f"; rr(-14,-15,10,6,2); ctx.fill(); rr(5,-15,10,6,2); ctx.fill();
+  rr(-14,9,10,6,2); ctx.fill(); rr(5,9,10,6,2); ctx.fill();
+  ctx.fillStyle="#2f6fd8"; rr(-20,-11,40,22,7); ctx.fill();
+  ctx.fillStyle="#2659b0"; rr(-20,-11,40,9,7); ctx.fill();
+  ctx.fillStyle="#bfe4ff"; rr(-7,-7,14,14,4); ctx.fill();
+  ctx.fillStyle="#8fc7ee"; rr(-7,-7,14,5,4); ctx.fill();
+  ctx.fillStyle="#ffd166"; ctx.beginPath(); ctx.arc(18,-7,2.6,0,7); ctx.arc(18,7,2.6,0,7); ctx.fill();
+  ctx.fillStyle="#e14b4b"; ctx.beginPath(); ctx.arc(-19,-7,2.2,0,7); ctx.arc(-19,7,2.2,0,7); ctx.fill();
+  ctx.restore(); }
+function drawTree(sx,sy,tr){
+  if(tr.stump){ ctx.fillStyle="#7a4f28"; rr(sx-8,sy-6,16,12,3); ctx.fill();
+    ctx.fillStyle="#a9713f"; ctx.beginPath(); ctx.ellipse(sx,sy-6,8,4,0,0,7); ctx.fill(); return; }
+  ctx.fillStyle="rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(sx,sy+12,16,6,0,0,7); ctx.fill();
+  ctx.fillStyle="#7a4f28"; rr(sx-5,sy-6,10,20,3); ctx.fill();
+  const sway=Math.sin(performance.now()/900+sx)*1.5;
+  ctx.fillStyle="#2f8f4e"; ctx.beginPath(); ctx.arc(sx+sway,sy-20,17,0,7); ctx.fill();
+  ctx.fillStyle="#3fb862"; ctx.beginPath(); ctx.arc(sx-7+sway,sy-25,11,0,7); ctx.fill();
+  ctx.fillStyle="#54d477"; ctx.beginPath(); ctx.arc(sx+6+sway,sy-28,8,0,7); ctx.fill(); }
+function drawBush(sx,sy,b){
+  ctx.fillStyle="rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(sx,sy+9,13,5,0,0,7); ctx.fill();
+  ctx.fillStyle="#2f8f4e"; ctx.beginPath(); ctx.arc(sx,sy,13,0,7); ctx.fill();
+  ctx.fillStyle="#45c26b"; ctx.beginPath(); ctx.arc(sx-6,sy-5,8,0,7); ctx.fill();
+  if(b.ready){ ctx.fillStyle="#e8405a"; [[-6,-2],[4,-6],[7,3],[-1,5]].forEach(([dx,dy])=>{ ctx.beginPath(); ctx.arc(sx+dx,sy+dy,3,0,7); ctx.fill(); }); } }
+function drawBldg(b,ox,oy){
+  const sx=b.x*TILE-ox, sy=b.y*TILE-oy, w=b.w*TILE, h=b.h*TILE;
+  ctx.fillStyle="rgba(0,0,0,.28)"; rr(sx+3,sy+h-4,w-6,8,4); ctx.fill();
+  if(b.t==="fence"){ ctx.strokeStyle="#b98a4a"; ctx.lineWidth=3;
+    for(let i=0;i<=b.w;i++){ ctx.beginPath(); ctx.moveTo(sx+i*TILE,sy+2); ctx.lineTo(sx+i*TILE,sy+h-4); ctx.stroke(); }
+    ctx.beginPath(); ctx.moveTo(sx,sy+h/2); ctx.lineTo(sx+w,sy+h/2); ctx.stroke(); return; }
+  if(b.t==="coop"){ ctx.fillStyle="#c96a3a"; rr(sx+2,sy+6,w-4,h-8,5); ctx.fill();
+    ctx.fillStyle="#a34f2a"; ctx.beginPath(); ctx.moveTo(sx-2,sy+8); ctx.lineTo(sx+w/2,sy-6); ctx.lineTo(sx+w+2,sy+8); ctx.fill();
+    ctx.fillStyle="#3a2416"; rr(sx+w/2-7,sy+h-18,14,14,6); ctx.fill(); return; }
+  if(b.t==="cottage"){ ctx.fillStyle="#d8b26a"; rr(sx+2,sy+10,w-4,h-12,5); ctx.fill();
+    ctx.fillStyle="#b0483a"; ctx.beginPath(); ctx.moveTo(sx-4,sy+14); ctx.lineTo(sx+w/2,sy-8); ctx.lineTo(sx+w+4,sy+14); ctx.fill();
+    ctx.fillStyle="#5a3a20"; rr(sx+w/2-8,sy+h-22,16,20,4); ctx.fill(); return; }
+  if(b.t==="store"){ ctx.fillStyle="#8f6fd8"; rr(sx+2,sy+8,w-4,h-10,6); ctx.fill();
+    ctx.fillStyle="#6d4fb8"; ctx.beginPath(); ctx.moveTo(sx,sy+12); ctx.lineTo(sx+w,sy+12); ctx.lineTo(sx+w-8,sy+2); ctx.lineTo(sx+8,sy+2); ctx.fill();
+    ctx.fillStyle="#ffd76e"; rr(sx+w/2-14,sy+16,28,16,4); ctx.fill();
+    ctx.fillStyle="#3a2a00"; ctx.font="bold 11px sans-serif"; ctx.textAlign="center"; ctx.fillText(t("sgStore"),sx+w/2,sy+28);
+    ctx.fillStyle="#4a3a10"; rr(sx+w/2-9,sy+h-26,18,24,4); ctx.fill(); return; }
+  const cb=CITYBLD[b.t];
+  if(cb){ ctx.fillStyle=cb.c; rr(sx+2,sy+8,w-4,h-10,6); ctx.fill();
+    ctx.fillStyle=cb.c2; ctx.beginPath(); ctx.moveTo(sx-2,sy+12); ctx.lineTo(sx+w/2,sy); ctx.lineTo(sx+w+2,sy+12); ctx.fill();
+    ctx.fillStyle="#ffd76e"; rr(sx+w/2-22,sy+16,44,15,4); ctx.fill();
+    ctx.fillStyle="#221800"; ctx.font="bold 10px sans-serif"; ctx.textAlign="center"; ctx.fillText(t(cb.lbl),sx+w/2,sy+27);
+    ctx.fillStyle="#4a3a10"; rr(sx+w/2-9,sy+h-26,18,24,4); ctx.fill(); return; }
+  if(b.t==="barn"){ ctx.fillStyle="#b03a2e"; rr(sx+2,sy+8,w-4,h-10,6); ctx.fill();
+    ctx.fillStyle="#8c2e24"; ctx.beginPath(); ctx.moveTo(sx-3,sy+12); ctx.lineTo(sx+w/2,sy-4); ctx.lineTo(sx+w+3,sy+12); ctx.fill();
+    ctx.fillStyle="#f4e6c4"; rr(sx+w/2-13,sy+h-32,26,28,5); ctx.fill();
+    ctx.fillStyle="#8c2e24"; rr(sx+w/2-13,sy+h-32,26,4,2); ctx.fill();
+    ctx.strokeStyle="#8c2e24"; ctx.lineWidth=2; ctx.beginPath();
+    ctx.moveTo(sx+w/2-13,sy+h-4); ctx.lineTo(sx+w/2+13,sy+h-32); ctx.stroke(); return; }
+  // house
+  ctx.fillStyle="#e8d3a8"; rr(sx+2,sy+10,w-4,h-12,6); ctx.fill();
+  ctx.fillStyle="#c0453a"; ctx.beginPath(); ctx.moveTo(sx-4,sy+14); ctx.lineTo(sx+w/2,sy-10); ctx.lineTo(sx+w+4,sy+14); ctx.fill();
+  ctx.fillStyle="#7a4f28"; rr(sx+w/2-9,sy+h-26,18,24,4); ctx.fill();
+  ctx.fillStyle="#7ec8ff"; rr(sx+8,sy+18,12,12,3); ctx.fill(); rr(sx+w-20,sy+18,12,12,3); ctx.fill(); }
+function drawGroundTile(tx,ty,sx,sy){
+  const k=tileKey(tx,ty);
+  const checker=(tx+ty)%2===0;
+  if(G.water.has(k)){ ctx.fillStyle=checker?"#2f6fd8":"#2a63c8"; ctx.fillRect(sx,sy,TILE,TILE);
+    ctx.strokeStyle="rgba(255,255,255,.25)"; ctx.lineWidth=1.5;
+    const wv=Math.sin(performance.now()/500+tx)*3;
+    ctx.beginPath(); ctx.moveTo(sx+4,sy+TILE/2+wv); ctx.lineTo(sx+TILE-4,sy+TILE/2+wv); ctx.stroke(); return; }
+  if(G.soil.has(k)){ ctx.fillStyle=checker?"#7a4f28":"#73492a"; ctx.fillRect(sx,sy,TILE,TILE);
+    ctx.strokeStyle="rgba(0,0,0,.22)"; ctx.lineWidth=1;
+    for(let i=1;i<4;i++){ ctx.beginPath(); ctx.moveTo(sx,sy+i*TILE/4); ctx.lineTo(sx+TILE,sy+i*TILE/4); ctx.stroke(); } return; }
+  if(G.roads&&G.roads.has(k)){ ctx.fillStyle=checker?"#8f887a":"#8a8375"; ctx.fillRect(sx,sy,TILE,TILE);
+    ctx.strokeStyle="rgba(0,0,0,.12)"; ctx.lineWidth=1; ctx.strokeRect(sx+.5,sy+.5,TILE-1,TILE-1);
+    ctx.fillStyle="rgba(255,255,255,.6)";
+    if(ty===10){ for(let i=0;i<4;i++)ctx.fillRect(sx+i*8+2,sy+TILE-2,4,2); }
+    if(tx===29){ for(let i=0;i<4;i++)ctx.fillRect(sx+TILE-2,sy+i*8+2,2,4); }
+    return; }
+  ctx.fillStyle=checker?"#5ab854":"#54b04e"; ctx.fillRect(sx,sy,TILE,TILE);
+  // decorative grass tufts
+  if(((tx*7+ty*13)%11)===0){ ctx.strokeStyle="#3f9a41"; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(sx+8,sy+TILE-6); ctx.lineTo(sx+7,sy+TILE-12);
+    ctx.moveTo(sx+12,sy+TILE-6); ctx.lineTo(sx+13,sy+TILE-12); ctx.stroke(); } }
+function drawCrop(k,cr,sx,sy){
+  const st=stageOf(cr);
+  if(st===0){ ctx.fillStyle="#6b4423"; ctx.beginPath(); ctx.arc(sx,sy+4,3,0,7); ctx.fill(); return; }
+  const col=["#7cc85a","#9ad86a","#e8b83a","#e8763a"][st];
+  const hh=[8,14,20,24][st];
+  ctx.strokeStyle="#3f8f3f"; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(sx,sy+8); ctx.lineTo(sx,sy+8-hh); ctx.stroke();
+  ctx.fillStyle=col; ctx.beginPath(); ctx.arc(sx,sy+8-hh,st<3?5:7,0,7); ctx.fill();
+  if(st===3){ ctx.fillStyle="#e8405a"; [[-4,-2],[4,1],[0,-6]].forEach(([dx,dy])=>{ ctx.beginPath(); ctx.arc(sx+dx,sy+8-hh+dy,2.5,0,7); ctx.fill(); }); } }
+function drawPickup(it,sx,sy){
+  const bob=Math.sin(performance.now()/300+it.x)*3;
+  ctx.fillStyle="rgba(0,0,0,.2)"; ctx.beginPath(); ctx.ellipse(sx,sy+7,7,3,0,0,7); ctx.fill();
+  if(it.t==="wood"){ ctx.fillStyle="#a9713f"; rr(sx-9,sy-4+bob,18,9,4); ctx.fill();
+    ctx.fillStyle="#d8a86a"; ctx.beginPath(); ctx.ellipse(sx+8,sy+.5+bob,3,4.5,0,0,7); ctx.fill(); }
+  else if(it.t==="egg"){ ctx.fillStyle="#fff6e0"; ctx.beginPath(); ctx.ellipse(sx,sy+bob,6,7.5,0,0,7); ctx.fill(); }
+  else if(it.t==="milk"){ ctx.fillStyle="#f4f7fb"; rr(sx-5,sy-6+bob,10,13,2); ctx.fill();
+    ctx.fillStyle="#8fc7ee"; rr(sx-5,sy-6+bob,10,4,2); ctx.fill();
+    ctx.fillStyle="#3f8fd0"; rr(sx-3,sy-9+bob,6,4,1); ctx.fill(); }
+  else { ctx.fillStyle="#ffd76e"; ctx.beginPath(); ctx.arc(sx,sy+bob,7,0,7); ctx.fill();
+    ctx.fillStyle="#fff"; ctx.font="bold 9px sans-serif"; ctx.textAlign="center"; ctx.fillText("🥚",sx,sy+3+bob); } }
+function renderLighting(cmx,cmy){
+  if(!isNight())return;
+  const h=(6+G.time*24)%24;
+  let a=.58; // night opacity
+  if(h>=18&&h<20)a=(h-18)/2*.58; if(h>=5&&h<6)a=(6-h)/2*.58;
+  lc.setTransform(1,0,0,1,0,0);
+  lc.clearRect(0,0,lightCv.width,lightCv.height);
+  lc.setTransform(dpr,0,0,dpr,0,0);
+  lc.fillStyle="rgba(10,18,52,"+a+")"; lc.fillRect(0,0,W,H);
+  // torch glows: players + house + store
+  const glow=(x,y,r,strength)=>{ lc.save(); lc.globalCompositeOperation="destination-out";
+    const g=lc.createRadialGradient(x,y,0,x,y,r); g.addColorStop(0,"rgba(0,0,0,"+strength+")"); g.addColorStop(1,"rgba(0,0,0,0)");
+    lc.fillStyle=g; lc.beginPath(); lc.arc(x,y,r,0,7); lc.fill(); lc.restore(); };
+  for(const p of G.players) glow(p.x-cmx,p.y-cmy,150,.95);
+  for(const b of G.bldgs){ if(b.t==="house"||b.t==="store"||b.t==="coop")
+    glow(b.x*TILE+b.w*TILE/2-cmx,b.y*TILE+b.h*TILE/2-cmy,120,.8); }
+  ctx.drawImage(lightCv,0,0,W,H);
+  // warm tint on lit zones
+  ctx.save(); ctx.globalCompositeOperation="overlay"; ctx.fillStyle="rgba(255,180,80,.10)"; ctx.fillRect(0,0,W,H); ctx.restore(); }
+function render(){
+  const cm=cam(), cmx=cm.x, cmy=cm.y;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.fillStyle="#54b04e"; ctx.fillRect(0,0,W,H);
+  const t0x=Math.floor(cmx/TILE), t0y=Math.floor(cmy/TILE);
+  const t1x=Math.min(MAP-1,Math.floor((cmx+W)/TILE)), t1y=Math.min(MAP-1,Math.floor((cmy+H)/TILE));
+  for(let ty=t0y;ty<=t1y;ty++)for(let tx=t0x;tx<=t1x;tx++) drawGroundTile(tx,ty,tx*TILE-cmx,ty*TILE-cmy);
+  // crops under everything
+  for(const [k,cr] of G.crops){ const [tx,ty]=k.split(",").map(Number);
+    if(tx<t0x||tx>t1x||ty<t0y||ty>t1y)continue; drawCrop(k,cr,tx*TILE+TILE/2-cmx,ty*TILE+TILE/2-cmy); }
+  // entities sorted by y
+  const ents=[];
+  for(const b of G.bldgs){ ents.push({y:(b.y+b.h)*TILE,f:()=>drawBldg(b,cmx,cmy)}); }
+  for(const [k,tr] of G.trees){ const [tx,ty]=k.split(",").map(Number);
+    if(tx<t0x-1||tx>t1x+1||ty<t0y-1||ty>t1y+1)continue;
+    ents.push({y:(ty+1)*TILE,f:()=>drawTree(tx*TILE+TILE/2-cmx,ty*TILE+TILE/2-cmy,tr)}); }
+  for(const [k,b] of G.bushes){ const [tx,ty]=k.split(",").map(Number);
+    if(tx<t0x||tx>t1x||ty<t0y||ty>t1y)continue;
+    ents.push({y:(ty+1)*TILE,f:()=>drawBush(tx*TILE+TILE/2-cmx,ty*TILE+TILE/2-cmy,b)}); }
+  for(const it of G.pickups){ if(it.x<cmx-40||it.x>cmx+W+40||it.y<cmy-40||it.y>cmy+H+40)continue;
+    ents.push({y:it.y,f:()=>drawPickup(it,it.x-cmx,it.y-cmy)}); }
+  for(const c of G.chickens){ if(c.x<cmx-40||c.x>cmx+W+40||c.y<cmy-40||c.y>cmy+H+40)continue;
+    ents.push({y:c.y,f:()=>drawChicken(c,c.x-cmx,c.y-cmy)}); }
+  for(const c of G.cows){ ents.push({y:c.y,f:()=>drawCow(c,c.x-cmx,c.y-cmy)}); }
+  if(G.car)ents.push({y:G.car.y,f:()=>drawCar(G.car,G.car.x-cmx,G.car.y-cmy)});
+  for(const p of G.players) if(!(G.car&&G.car.on&&p===G.players[0]))ents.push({y:p.y,f:()=>drawPlayer(p,p.x-cmx,p.y-cmy)});
+  ents.sort((a,b)=>a.y-b.y); for(const e of ents)e.f();
+  // particles
+  for(const q of G.parts){ ctx.globalAlpha=Math.max(0,q.life/q.max); ctx.fillStyle=q.c;
+    ctx.fillRect(q.x-cmx-q.s/2,q.y-cmy-q.s/2,q.s,q.s); } ctx.globalAlpha=1;
+  // floating texts
+  ctx.textAlign="center"; ctx.font="bold 15px sans-serif";
+  for(const f of G.floats){ ctx.globalAlpha=Math.min(1,f.life); ctx.fillStyle="#fff";
+    ctx.strokeStyle="rgba(0,0,0,.6)"; ctx.lineWidth=3;
+    ctx.strokeText(f.txt,f.x-cmx,f.y-cmy); ctx.fillText(f.txt,f.x-cmx,f.y-cmy); } ctx.globalAlpha=1;
+  // sky tint (night) then lights
+  renderLighting(cmx,cmy);
+  // vignette
+  const vg=ctx.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.max(W,H)*.75);
+  vg.addColorStop(0,"rgba(0,0,0,0)"); vg.addColorStop(1,"rgba(0,0,0,.30)");
+  ctx.fillStyle=vg; ctx.fillRect(0,0,W,H);
+  // day badge
+  ctx.textAlign="left"; ctx.font="bold 13px sans-serif";
+  // build ghost
+  if(buildSel&&mode==="play"){ const p=G.players[0], ft=frontTile(p), tx=ft[0], ty=ft[1];
+    const ok=!G.occ.has(tileKey(tx,ty))&&!G.water.has(tileKey(tx,ty));
+    ctx.globalAlpha=.55; ctx.fillStyle=ok?"#7dff9b":"#ff6b6b";
+    rr(tx*TILE-cmx+2,ty*TILE-cmy+2,TILE-4,TILE-4,6); ctx.fill(); ctx.globalAlpha=1;
+    ctx.strokeStyle=ok?"#fff":"#ffdede"; ctx.lineWidth=2; rr(tx*TILE-cmx+2,ty*TILE-cmy+2,TILE-4,TILE-4,6); ctx.stroke(); } }
+function syncHud(){
+  $("money").textContent=G.money;
+  $("dayTxt").textContent=(isNight()?"🌙":"☀️")+" "+tp("hudDay",{d:G.day,h:hourStr()});
+  $("hpBar").style.width=clamp(G.hp,0,100)+"%";
+  $("hgBar").style.width=clamp(G.hunger,0,100)+"%";
+  $("iSeed").textContent=G.inv.seed; $("iCrop").textContent=G.inv.crop;
+  $("iEgg").textContent=G.inv.egg; $("iWood").textContent=G.inv.wood; $("iBerry").textContent=G.inv.berry;
+  $("iMilk").textContent=G.inv.milk||0; $("iFuel").textContent=G.inv.fuel||0;
+  // contextual hint
+  if(mode==="play"){ const w=buildSel?"build":contextFor(G.players[0]);
+    if(w){ const txt=HINTS[w]?HINTS[w](buildSel):""; if(txt){$("hint").textContent=txt;$("hint").classList.remove("hidden");} else $("hint").classList.add("hidden"); }
+    else $("hint").classList.add("hidden"); } else $("hint").classList.add("hidden"); }
+/* ============================ LOOP ============================ */
+function frame(t){ requestAnimationFrame(frame);
+  const raw=(t-lastT)/1000||0, dt=Math.min(.05,raw); lastT=t;
+  if(raw>1.5&&mode==="play"&&G)advanceClock(raw,true); // hidden tab / sleep -> smart catch-up
+  if(mode==="play"&&G){ update(dt); render(); syncHud(); } }
+/* ============================ FLOW ============================ */
+let lastMode="title";
+function startGame(fresh){ if(fresh){ newGame(); save(); } else if(!load()){ newGame(); save(); }
+  mode="play"; hideOv(); $("hud").classList.remove("hidden"); $("inv").classList.remove("hidden");
+  $("stickZone").classList.remove("hidden"); $("btns").classList.remove("hidden");
+  sfx("day"); toast(t("tWelcome")); }
+function pauseGame(){ if(mode!=="play")return; mode="pause"; if(G&&G.car&&G.car.on)engineLoop(false); showOv("ovPause"); save(); }
+function resumeGame(){ mode="play"; hideOv(); if(G&&G.car&&G.car.on)engineLoop(true); }
+function toTitle(){ if(G&&G.car)G.car.on=false; engineLoop(false); save(); mode="title"; lastMode="title"; showOv("ovTitle");
+  $("hud").classList.add("hidden"); $("inv").classList.add("hidden");
+  $("stickZone").classList.add("hidden"); $("btns").classList.add("hidden"); refreshTitle(); }
+function refreshTitle(){ $("btnContinue").style.display=hasSave()?"block":"none"; }
+$("btnContinue").onclick=()=>{ actx(); sfx("ui"); startGame(false); };
+$("btnNew").onclick=()=>{ actx(); sfx("ui");
+  if(hasSave()&&!confirm(t("tNewWarn")))return;
+  try{localStorage.removeItem(SAVEKEY)}catch(e){} startGame(true); };
+$("btnAbout").onclick=()=>{ lastMode="title"; mode="about"; sfx("ui"); showOv("ovAbout"); };
+$("btnAbout2").onclick=()=>{ lastMode="pause"; mode="about"; sfx("ui"); showOv("ovAbout"); };
+$("btnAboutClose").onclick=()=>{ sfx("ui"); if(lastMode==="pause"){mode="pause";showOv("ovPause");} else {mode="title";showOv("ovTitle");} };
+$("btnResume").onclick=()=>{ sfx("ui"); resumeGame(); };
+$("btnSave").onclick=()=>{ save(); sfx("coin"); toast(t("tSaved")); };
+$("btnQuit").onclick=()=>{ sfx("ui"); toTitle(); };
+$("btnStoreClose").onclick=()=>{ sfx("ui"); resumeGame(); };
+$("btnCityClose").onclick=()=>{ sfx("ui"); closeCity(); };
+$("btnSellAll").onclick=()=>{ let tot=0; for(const k of ["crop","egg","wood","berry","milk"]){ tot+=G.inv[k]*PRICE[k]; G.inv[k]=0; }
+  if(tot>0){ G.money+=tot; sfx("coin"); toast(tp("tSoldAll",{n:tot})); } else toast(t("tNothing"));
+  renderStore(); };
+$("btnBuildClose").onclick=()=>{ sfx("ui"); closeBuildMenu(); };
+$("btnSfx").onclick=()=>{ setSfx(!AU.sfxOn); };
+$("btnMus").onclick=()=>{ setMusic(!MUS.on); };
+$("cCrop").onclick=()=>eat("crop"); $("cBerry").onclick=()=>eat("berry");
+document.addEventListener("visibilitychange",()=>{ if(document.hidden&&mode==="play"){ pauseGame(); } });
+window.addEventListener("beforeunload",save);
+/* ============================ BOOT ============================ */
+resize(); refreshTitle();
+if(!("ontouchstart" in window)&&window.innerWidth>760){ $("btns").insertAdjacentHTML("beforeend","<div data-i18n-html='wasdHint' style='color:#8fa6cf;font-size:11px;text-align:center;width:74px'>WASD</div>"); }
+initLangUI(); applyLang();
+requestAnimationFrame(t=>{lastT=t;requestAnimationFrame(frame)});
+</script>
+</body>
+</html>
